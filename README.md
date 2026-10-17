@@ -70,6 +70,29 @@ Before selecting a model:
 
 Local generation does not require a paid API key. Hardware, electricity, storage, and generation time still have real costs.
 
+### Configuring ComfyUI
+
+The `comfyui` adapter does **not** ship a built-in model workflow. It submits whatever workflow you export from your own ComfyUI installation, so real video generation needs a video model installed there (for example Wan or LTX-Video).
+
+1. Start ComfyUI and build a working text-to-video (or image-to-video) workflow with the model installed on your machine.
+2. In ComfyUI use **Save (API Format)** to export the workflow JSON.
+3. Replace the prompt, seed, size, FPS, and duration values with these tokens:
+
+   | Token | Meaning |
+   |---|---|
+   | `{{PROMPT}}` | Job prompt (JSON-escaped automatically) |
+   | `{{NEGATIVE_PROMPT}}` | Negative prompt |
+   | `{{WIDTH}}`, `{{HEIGHT}}` | Requested resolution (integers) |
+   | `{{FPS}}`, `{{DURATION}}` | Frame rate and duration |
+   | `{{SEED}}` | Requested seed (0 when unset) |
+   | `{{MODEL_NAME}}` | Optional model label |
+
+   Tokens are substituted as JSON values, so a prompt containing quotes or newlines stays valid.
+4. Set `COMFYUI_WORKFLOW_PATH=comfyui/wan_t2v_api.json` (relative paths resolve against the project root) and `INFERENCE_DEFAULT_ADAPTER=comfyui`.
+5. Restart the server. The diagnostics/settings pages show whether a workflow is configured.
+
+If no workflow is configured, the adapter rejects the job with an actionable message instead of submitting a placeholder graph that could never produce a video.
+
 The adapter layer lives in `generator/adapters.py` with concrete implementations in:
 
 - `generator/adapters_comfyui.py` — ComfyUI adapter
@@ -131,6 +154,7 @@ Copy `.env.example` to `.env` and review the values. Important settings include:
 - `ALLOWED_HOSTS` — comma-separated list of allowed hosts
 - `INFERENCE_DEFAULT_ADAPTER` — `comfyui`, `wan`, `ltx`, or `test`
 - `COMFYUI_BASE_URL` — URL of the local ComfyUI instance, if used
+- `COMFYUI_WORKFLOW_PATH` — path to an exported ComfyUI API workflow (see below); empty means the ComfyUI adapter refuses to run
 - `FFMPEG_BIN` — path to ffmpeg if not on PATH
 - `FILM_TRANSITION_SECONDS` — crossfade duration used when assembling a film
 - `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` — Redis or other broker/backend (`redis` is installed from `requirements.txt` so Celery can resolve the broker transport even in eager mode)
@@ -324,11 +348,12 @@ On this machine:
 
 - Django system checks pass (`python manage.py check`).
 - Migrations are generated for every app with models and apply cleanly.
-- The full test suite runs and passes (130 tests; the real-FFmpeg integration
+- The full test suite runs and passes (139 tests; the real-FFmpeg integration
   test is skipped when ffmpeg/ffprobe are absent) for the components that do not
   require a GPU, including the rule-based prompt assistant, scene generation
-  bookkeeping, scene reordering, character profiles, and crossfade
-  filter-graph/command construction.
+  bookkeeping, scene reordering, character profiles, crossfade
+  filter-graph/command construction, and ComfyUI workflow configuration,
+  token substitution, and history parsing.
 - End-to-end prompt-to-video through the real form with the CPU test adapter and
   a real FFmpeg 6.0 static build: job reached SUCCESS, produced a decodable
   128×96 H.264 MP4 (~1s), created a library entry with probed metadata, and the
@@ -348,7 +373,7 @@ On this machine:
 ### What could not be tested here
 
 - Real AI video generation with a local model (no compatible GPU/VRAM available on this machine).
-- The ComfyUI adapter against a running ComfyUI instance (no local ComfyUI instance available on this machine).
+- The ComfyUI adapter against a running ComfyUI instance (no local ComfyUI instance available on this machine), so workflow submission was tested only with mocked HTTP responses. A usable workflow therefore still has to be exported from your own ComfyUI install.
 - Celery worker behaviour with a real broker (Redis not available on this machine), although eager mode was exercised end to end.
 - Long-running job progress polling under real inference load.
 - A real FFmpeg crossfade render: the integration test is skipped when

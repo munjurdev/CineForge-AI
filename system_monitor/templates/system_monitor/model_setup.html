@@ -45,8 +45,14 @@
         <li>Install ComfyUI for your platform.</li>
         <li>Install a maintained video-generation workflow and model inside ComfyUI.</li>
         <li>Confirm the workflow works end-to-end in ComfyUI before using it here.</li>
-        <li>Set <code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">COMFYUI_BASE_URL</code> in your environment.</li>
+        <li>Export it with <strong>Save (API Format)</strong> and replace the prompt, seed, size, FPS, and duration values with the documented tokens.</li>
+        <li>Set <code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">COMFYUI_BASE_URL</code> and <code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">COMFYUI_WORKFLOW_PATH</code> in your environment.</li>
       </ul>
+      {% if info.tools.comfyui_running %}
+        <p class="mt-3 text-xs text-green-400">ComfyUI is reachable at the configured URL.</p>
+      {% else %}
+        <p class="mt-3 text-xs text-amber-400">ComfyUI is not reachable. Start it before generating.</p>
+      {% endif %}
       <p class="mt-3 text-xs text-neutral-500">The ComfyUI adapter talks to the running instance; it does not install or manage models for you.</p>
     </section>
 

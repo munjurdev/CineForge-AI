@@ -286,6 +286,15 @@ INFERENCE_DEFAULT_ADAPTER = config(
 ).lower()
 COMFYUI_BASE_URL = config("COMFYUI_BASE_URL", default="http://127.0.0.1:8188")
 COMFYUI_API_TIMEOUT = config("COMFYUI_API_TIMEOUT", default=600, cast=int)
+# Exported ComfyUI API workflow. Relative paths resolve against BASE_DIR.
+# When empty, the ComfyUI adapter refuses to run instead of submitting a
+# placeholder graph that cannot produce a video.
+COMFYUI_WORKFLOW_PATH = config("COMFYUI_WORKFLOW_PATH", default="")
+if COMFYUI_WORKFLOW_PATH:
+    _workflow_path = Path(COMFYUI_WORKFLOW_PATH)
+    if not _workflow_path.is_absolute():
+        _workflow_path = BASE_DIR / _workflow_path
+    COMFYUI_WORKFLOW_PATH = str(_workflow_path)
 GENERATION_JOB_TIMEOUT_SECONDS = config(
     "GENERATION_JOB_TIMEOUT_SECONDS", default=60 * 30, cast=int
 )

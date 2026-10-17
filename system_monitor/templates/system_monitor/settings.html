@@ -44,6 +44,7 @@
         {% include "system_monitor/_config_row.html" with label="Default adapter" value=config.default_adapter %}
         {% include "system_monitor/_config_row.html" with label="ComfyUI URL" value=config.comfyui_base_url %}
         {% include "system_monitor/_config_row.html" with label="ComfyUI timeout" value=config.comfyui_timeout|stringformat:"s"|add:" s" %}
+        {% include "system_monitor/_config_row.html" with label="ComfyUI workflow" value=config.comfyui_workflow_path %}
       </dl>
     </section>
 

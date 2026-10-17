@@ -19,6 +19,7 @@ ComfyUI instance.
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
 from pathlib import Path
@@ -29,8 +30,46 @@ import httpx
 from django.conf import settings
 
 from .adapters import BaseAdapter, registry
+from .models import GenerationJob
 
 logger = logging.getLogger("cineforge.generator.adapters_comfyui")
+
+
+def _json_string(value: Any) -> str:
+    """Escape a value for embedding inside a JSON string in the template."""
+    return json.dumps(str(value))[1:-1]
+
+
+def _history_output_files(
+    history: dict[str, Any], prompt_id: str
+) -> list[tuple[str, str]]:
+    """Return (filename, subfolder) pairs from a ComfyUI /history response.
+
+    ComfyUI keys the history payload by prompt id; older builds omit the
+    wrapper. Node outputs usually hold the files under "gifs", "videos", or
+    "images" as dicts with filename/subfolder/type keys.
+    """
+    entry = history.get(prompt_id)
+    if not isinstance(entry, dict):
+        if isinstance(history.get("outputs"), dict):
+            entry = history
+        else:
+            entry = next(
+                (value for value in history.values() if isinstance(value, dict)), {}
+            )
+
+    outputs = entry.get("outputs") or {}
+    files: list[tuple[str, str]] = []
+    for node_output in outputs.values():
+        if not isinstance(node_output, dict):
+            continue
+        for key in ("gifs", "videos", "images", "files"):
+            for item in node_output.get(key) or []:
+                if isinstance(item, dict) and item.get("filename"):
+                    files.append(
+                        (item["filename"], item.get("subfolder") or "output")
+                    )
+    return files
 
 
 class ComfyUIAdapter(BaseAdapter):
@@ -56,6 +95,14 @@ class ComfyUIAdapter(BaseAdapter):
         ]
 
     def validate(self, job: Any) -> tuple[bool, str | None, list[str]]:
+        workflow_error = self._workflow_config_error()
+        if workflow_error:
+            return (
+                False,
+                workflow_error,
+                ["Export a workflow from ComfyUI and point COMFYUI_WORKFLOW_PATH at it."],
+            )
+
         base_url = getattr(settings, "COMFYUI_BASE_URL", "http://127.0.0.1:8188")
         timeout = float(getattr(settings, "COMFYUI_API_TIMEOUT", 600))
 
@@ -115,8 +162,8 @@ class ComfyUIAdapter(BaseAdapter):
         client = httpx.Client(timeout=timeout)
 
         try:
-            # Build workflow
-            workflow = self._build_workflow(job)
+            # Build workflow from the configured exported API workflow
+            workflow = self._load_workflow(job)
             if workflow is None:
                 return None
 
@@ -137,6 +184,12 @@ class ComfyUIAdapter(BaseAdapter):
                 return None
 
             result_payload = resp.json()
+            if result_payload.get("error"):
+                logger.error(
+                    "ComfyUI rejected the workflow: %s",
+                    json.dumps(result_payload.get("node_errors", result_payload))[:500],
+                )
+                return None
             prompt_id = result_payload.get("prompt_id")
             if not prompt_id:
                 # Some versions return {filename, subfolder} directly for
@@ -181,70 +234,69 @@ class ComfyUIAdapter(BaseAdapter):
                 pass
 
     # ------------------------------------------------------------------
-    # Workflow construction
+    # Workflow loading
     # ------------------------------------------------------------------
 
-    def _build_workflow(self, job: Any) -> dict[str, Any] | None:
-        """Return a ComfyUI workflow dict for the job.
+    def _workflow_path(self) -> Path | None:
+        raw = getattr(settings, "COMFYUI_WORKFLOW_PATH", "")
+        return Path(raw) if raw else None
 
-        This is a minimal placeholder workflow. In a real installation this
-        would be replaced by the actual workflow JSON used by the installed
-        video model (Wan, LTX, etc.). The adapter should refuse to run if the
-        real workflow is not configured.
-        """
-        workflow = {
-            "99": {
-                "class_type": "PreviewImage",
-                "inputs": {
-                    "image": ["57", 0],
-                },
-            },
-            "57": {
-                "class_type": "SaveImage",
-                "inputs": {
-                    "filename_prefix": "cineforge",
-                    "images": ["33", 0],
-                },
-            },
-            "33": {
-                "class_type": "VAEDecode",
-                "inputs": {
-                    "vae": ["31", 0],
-                    "samples": ["32", 0],
-                },
-            },
-            "31": {
-                "class_type": "VAELoader",
-                "inputs": {
-                    "repository_id": "stabilityai/sd-vae-ft-mse",
-                },
-            },
-            "32": {
-                "class_type": "EmptyData",
-                "inputs": {},
-            },
-            "9": {
-                "class_type": "CLIPTextEncode",
-                "inputs": {
-                    "clip": ["3", 1],
-                    "text": job.prompt or "",
-                },
-            },
-            "10": {
-                "class_type": "CLIPTextEncode",
-                "inputs": {
-                    "clip": ["3", 1],
-                    "text": job.negative_prompt or "worst quality, low quality",
-                },
-            },
-            "3": {
-                "class_type": "CLIPLoader",
-                "inputs": {
-                    "clip_name": "stabilityai/stable-diffusion-2-1",
-                    "loaded": False,
-                },
-            },
+    def _render_workflow(self, template: str, job: Any | None) -> str:
+        """Replace {{TOKENS}} in an exported ComfyUI API workflow."""
+        prompt = getattr(job, "prompt", "") if job is not None else ""
+        negative = getattr(job, "negative_prompt", "") if job is not None else ""
+        model_name = getattr(job, "model_name", "") if job is not None else ""
+        seed = getattr(job, "seed", None) if job is not None else None
+
+        values = {
+            "PROMPT": _json_string(prompt or ""),
+            "NEGATIVE_PROMPT": _json_string(negative or ""),
+            "MODEL_NAME": _json_string(model_name or ""),
+            "WIDTH": str(int(getattr(job, "width", 0) or 832) if job else 832),
+            "HEIGHT": str(int(getattr(job, "height", 0) or 480) if job else 480),
+            "FPS": str(int(getattr(job, "fps", 0) or 24) if job else 24),
+            "DURATION": str(float(getattr(job, "duration_seconds", 0) or 2.0) if job else 2.0),
+            "SEED": str(int(seed) if seed is not None else 0),
         }
+        for key, value in values.items():
+            template = template.replace("{" + "{" + key + "}" + "}", value)
+        return template
+
+    def _workflow_config_error(self) -> str | None:
+        """Return an actionable error when no usable workflow is configured."""
+        path = self._workflow_path()
+        if path is None:
+            return (
+                "No ComfyUI workflow is configured. Export your video workflow "
+                "from ComfyUI (Save (API Format)) and set COMFYUI_WORKFLOW_PATH."
+            )
+        if not path.exists():
+            return f"COMFYUI_WORKFLOW_PATH does not exist: {path}"
+        try:
+            rendered = self._render_workflow(path.read_text(encoding="utf-8"), None)
+            json.loads(rendered)
+        except (OSError, ValueError) as exc:
+            return f"Could not load the ComfyUI workflow at {path}: {exc}"
+        return None
+
+    def _load_workflow(self, job: Any) -> dict[str, Any] | None:
+        """Load the configured workflow and substitute the job's values."""
+        error = self._workflow_config_error()
+        if error:
+            logger.error("%s", error)
+            return None
+
+        path = self._workflow_path()
+        assert path is not None
+        try:
+            rendered = self._render_workflow(path.read_text(encoding="utf-8"), job)
+            workflow = json.loads(rendered)
+        except (OSError, ValueError) as exc:
+            logger.error("Could not render ComfyUI workflow %s: %s", path, exc)
+            return None
+        if not isinstance(workflow, dict):
+            logger.error("ComfyUI workflow must be a JSON object: %s", path)
+            return None
         return workflow
 
     # ------------------------------------------------------------------
@@ -270,19 +322,14 @@ class ComfyUIAdapter(BaseAdapter):
             try:
                 st = client.get(f"{base_url}/history/{prompt_id}", timeout=5.0)
                 if st.status_code == 200:
-                    data = st.json()
-                    outputs = data.get("outputs", {})
-                    if outputs:
-                        for node_id, node_data in outputs.items():
-                            if node_data.get("subfolder") == "output":
-                                for fname in node_data.get("files", []):
-                                    # reconstruct path from filename/subfolder
-                                    subfolder = node_data.get("subfolder", "output")
-                                    candidate = self._download_file(
-                                        client, base_url, fname, subfolder, temp_dir
-                                    )
-                                    if candidate and candidate.exists():
-                                        return candidate
+                    for fname, subfolder in _history_output_files(
+                        st.json(), prompt_id
+                    ):
+                        candidate = self._download_file(
+                            client, base_url, fname, subfolder, temp_dir
+                        )
+                        if candidate and candidate.exists():
+                            return candidate
                 elif st.status_code != 404:
                     last_status = f"status {st.status_code}"
             except Exception as exc:  # pragma: no cover - network
@@ -314,9 +361,19 @@ class ComfyUIAdapter(BaseAdapter):
             attempts += 1
             time.sleep(poll_interval)
 
-            # Check for cancellation
-            if job.status in {job.status.CANCELLED, job.status.FAILED}:
-                return None
+            # Check for cancellation using a fresh read, since the job row is
+            # updated by the cancel view in another request.
+            if job.pk is not None:
+                current_status = (
+                    GenerationJob.objects.filter(pk=job.pk)
+                    .values_list("status", flat=True)
+                    .first()
+                )
+                if current_status in {
+                    GenerationJob.Status.CANCELLED,
+                    GenerationJob.Status.FAILED,
+                }:
+                    return None
 
         from .services import job_fail
 

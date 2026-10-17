@@ -50,6 +50,9 @@ def settings_page(request):
         "default_adapter": django_settings.INFERENCE_DEFAULT_ADAPTER,
         "comfyui_base_url": django_settings.COMFYUI_BASE_URL,
         "comfyui_timeout": django_settings.COMFYUI_API_TIMEOUT,
+        "comfyui_workflow_path": (
+            getattr(django_settings, "COMFYUI_WORKFLOW_PATH", "") or "Not configured"
+        ),
         "celery_broker": django_settings.CELERY_BROKER_URL,
         "celery_backend": django_settings.CELERY_RESULT_BACKEND,
         "celery_eager": getattr(django_settings, "CELERY_TASK_ALWAYS_EAGER", False),
