@@ -93,6 +93,14 @@ The `comfyui` adapter does **not** ship a built-in model workflow. It submits wh
 
 If no workflow is configured, the adapter rejects the job with an actionable message instead of submitting a placeholder graph that could never produce a video.
 
+Validate the setup before generating:
+
+```powershell
+python manage.py comfyui_check
+```
+
+A full cloud-GPU walkthrough (RunPod + Wan 2.2, no local GPU required) is in [docs/cloud-gpu-comfyui.md](docs/cloud-gpu-comfyui.md).
+
 The adapter layer lives in `generator/adapters.py` with concrete implementations in:
 
 - `generator/adapters_comfyui.py` — ComfyUI adapter
@@ -348,7 +356,7 @@ On this machine:
 
 - Django system checks pass (`python manage.py check`).
 - Migrations are generated for every app with models and apply cleanly.
-- The full test suite runs and passes (139 tests; the real-FFmpeg integration
+- The full test suite runs and passes (144 tests; the real-FFmpeg integration
   test is skipped when ffmpeg/ffprobe are absent) for the components that do not
   require a GPU, including the rule-based prompt assistant, scene generation
   bookkeeping, scene reordering, character profiles, crossfade
