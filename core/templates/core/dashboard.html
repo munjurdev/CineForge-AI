@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">Dashboard</h1>
+      <p class="mt-1 text-sm text-neutral-400">
+        Local video generation at a glance — hardware readiness, output, and recent jobs.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'generator:generate_video' %}"
+         class="rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-500">
+        Generate video
+      </a>
+      <a href="{% url 'library:video_list' %}"
+         class="rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-700">
+        Open library
+      </a>
+    </div>
+  </header>
+
+  <section aria-label="Project totals" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Generation jobs</p>
+      <p class="mt-2 text-2xl font-semibold text-neutral-100">{{ stats.jobs }}</p>
+      <p class="mt-1 text-xs text-neutral-500">{{ stats.success_rate }}% completed successfully</p>
+    </div>
+    <div class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Generated videos</p>
+      <p class="mt-2 text-2xl font-semibold text-neutral-100">{{ stats.videos }}</p>
+      <p class="mt-1 text-xs text-neutral-500"><a href="{% url 'library:video_list' %}" class="text-purple-400 hover:text-purple-300">Browse library</a></p>
+    </div>
+    <div class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Film projects</p>
+      <p class="mt-2 text-2xl font-semibold text-neutral-100">{{ stats.films }}</p>
+      <p class="mt-1 text-xs text-neutral-500"><a href="{% url 'films:film_list' %}" class="text-purple-400 hover:text-purple-300">Open film studio</a></p>
+    </div>
+    <div class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+      <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Default engine</p>
+      <p class="mt-2 text-2xl font-semibold text-neutral-100">{{ engine.label }}</p>
+      <p class="mt-1 text-xs {% if engine.ready %}text-green-400{% else %}text-amber-400{% endif %}">
+        {% if engine.ready %}Adapter available{% else %}Adapter not registered{% endif %}
+      </p>
+    </div>
+  </section>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-2">
+    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-400">System readiness</h2>
+        <a href="{% url 'system_monitor:diagnostics' %}" class="text-xs text-purple-400 hover:text-purple-300">Full diagnostics</a>
+      </div>
+      <dl class="space-y-2 text-sm">
+        <div class="flex items-center justify-between gap-4">
+          <dt class="text-neutral-400">GPU</dt>
+          <dd class="text-right {% if system.has_gpu %}text-green-400{% else %}text-neutral-400{% endif %}">
+            {% if system.has_gpu %}{{ system.gpu_name|default:"Detected" }}{% else %}CPU only{% endif %}
+          </dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="text-neutral-400">VRAM</dt>
+          <dd class="text-neutral-200">{% if system.vram_mb %}{{ system.vram_mb }} MB{% else %}—{% endif %}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="text-neutral-400">Available RAM</dt>
+          <dd class="text-neutral-200">{% if system.ram_available %}{{ system.ram_available|filesizeformat }}{% else %}—{% endif %}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="text-neutral-400">FFmpeg</dt>
+          <dd class="text-right {% if system.ffmpeg_available %}text-green-400{% else %}text-red-400{% endif %}">
+            {% if system.ffmpeg_available %}Available{% else %}Missing{% endif %}
+          </dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt class="text-neutral-400">ComfyUI</dt>
+          <dd class="text-right {% if system.comfyui_running %}text-green-400{% else %}text-neutral-400{% endif %}">
+            {% if system.comfyui_running %}Reachable{% else %}Not reachable{% endif %}
+          </dd>
+        </div>
+      </dl>
+
+      {% if system.warnings %}
+        <div class="mt-4 rounded-lg border border-amber-800 bg-amber-900/20 p-3 text-xs text-amber-200">
+          <ul class="list-disc space-y-1 pl-4">
+            {% for warning in system.warnings|slice:":3" %}
+              <li>{{ warning }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-400">Recent jobs</h2>
+        <a href="{% url 'generator:job_list' %}" class="text-xs text-purple-400 hover:text-purple-300">All jobs</a>
+      </div>
+      {% if recent_jobs %}
+        <ul class="divide-y divide-neutral-800">
+          {% for job in recent_jobs %}
+            <li class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+              <div class="min-w-0">
+                <a href="{% url 'generator:job_detail' pk=job.pk %}" class="block truncate text-sm text-neutral-200 hover:text-purple-300">
+                  {{ job.prompt|default:"(no prompt)"|truncatechars:60 }}
+                </a>
+                <p class="mt-0.5 text-xs text-neutral-500">{{ job.created|date:"M j, H:i" }} · {{ job.get_engine_display }}</p>
+              </div>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium
+                {% if job.status == 'SUCCESS' %}bg-green-900/40 text-green-300
+                {% elif job.status == 'FAILED' %}bg-red-900/40 text-red-300
+                {% elif job.status == 'RUNNING' %}bg-amber-900/40 text-amber-300
+                {% else %}bg-neutral-800 text-neutral-400{% endif %}">
+                {{ job.get_status_display }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-neutral-500">No jobs yet. Your first generation will show up here.</p>
+        <a href="{% url 'generator:generate_video' %}" class="mt-3 inline-flex rounded-md border border-purple-700 bg-purple-900/30 px-3 py-1.5 text-xs font-medium text-purple-200 hover:bg-purple-900/50">
+          Start generating
+        </a>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="mt-6 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">Registered adapters</h2>
+    <div class="flex flex-wrap gap-2">
+      {% for adapter in engine.adapters %}
+        <span class="rounded-full border border-neutral-700 bg-neutral-800 px-3 py-1 text-xs text-neutral-300">{{ adapter }}</span>
+      {% empty %}
+        <span class="text-sm text-neutral-500">No adapters registered.</span>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

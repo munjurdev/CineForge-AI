@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.title }} — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">{{ project.title }}</h1>
+      {% if project.description %}
+        <p class="mt-1 text-sm text-neutral-400">{{ project.description|linebreaksbr }}</p>
+      {% endif %}
+      {% if project.project_note %}
+        <div class="mt-3 rounded-md border border-neutral-700 bg-neutral-800/60 p-4 text-sm text-neutral-400">
+          <span class="font-medium text-neutral-300">Notes:</span>
+          {{ project.project_note|linebreaksbr }}
+        </div>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'films:character_list' %}" class="rounded-md border border-neutral-600 bg-neutral-700 px-3 py-2 text-sm text-neutral-200 transition hover:bg-neutral-600">Characters</a>
+      <a href="{% url 'films:film_edit' pk=project.pk %}" class="rounded-md border border-neutral-600 bg-neutral-700 px-3 py-2 text-sm text-neutral-200 transition hover:bg-neutral-600">Edit</a>
+      {% if project.can_assemble %}
+        <form method="post" action="{% url 'films:film_assemble' pk=project.pk %}" class="inline-block">
+          {% csrf_token %}
+          <button type="submit" class="rounded-md border border-purple-700 bg-purple-900/30 px-3 py-2 text-sm font-medium text-purple-200 transition hover:bg-purple-900/50">Assemble movie</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if project.assembly_error %}
+    <div class="mb-6 rounded-lg border border-red-700 bg-red-900/20 p-4 text-sm text-red-200">
+      <p class="font-medium">Last assembly attempt failed</p>
+      <p class="mt-1">{{ project.assembly_error|linebreaksbr }}</p>
+    </div>
+  {% endif %}
+
+  <h2 class="mb-4 text-sm font-medium uppercase tracking-wider text-neutral-400">Scenes</h2>
+
+  {% if project.scenes.exists %}
+    <ol class="mb-6 space-y-3">
+      {% for scene in project.scenes.all %}
+        <li class="flex flex-wrap items-start gap-4 rounded-lg border border-neutral-700 bg-neutral-800/60 p-4 backdrop-blur-sm sm:flex-nowrap">
+          <span class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-700 text-xs font-medium text-neutral-300">{{ forloop.counter }}</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-3">
+              <h3 class="truncate text-base font-medium text-neutral-100">{{ scene.title|default:"Untitled scene" }}</h3>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {% if scene.status == 'SUCCESS' %}bg-green-900/40 text-green-300{% elif scene.status == 'FAILED' %}bg-red-900/40 text-red-300{% elif scene.status == 'RUNNING' %}bg-amber-900/40 text-amber-300{% elif scene.status == 'PENDING' %}bg-neutral-700 text-neutral-300{% else %}bg-neutral-700 text-neutral-400{% endif %}">
+                {{ scene.get_status_display }}
+              </span>
+            </div>
+            {% if scene.prompt %}
+              <p class="mt-1 text-sm text-neutral-400">{{ scene.prompt|linebreaksbr|truncatewords:15 }}</p>
+            {% endif %}
+            <div class="mt-2 flex flex-wrap gap-3 text-xs text-neutral-500">
+              {% if scene.duration_seconds %}
+                <span>{{ scene.duration_seconds }}s</span>
+              {% endif %}
+              {% if scene.transition_in %}
+                <span>In: {{ scene.get_transition_in_display }}</span>
+              {% endif %}
+              {% if scene.transition_out %}
+                <span>Out: {{ scene.get_transition_out_display }}</span>
+              {% endif %}
+              {% if scene.character_reference %}
+                <span>Character: {{ scene.character_reference.name }}</span>
+              {% endif %}
+            </div>
+
+            {% if scene.output_file %}
+              <video controls preload="metadata" class="mt-3 w-full rounded-md border border-neutral-700 bg-neutral-950">
+                <source src="{{ scene.output_file.url }}" type="video/mp4">
+                Your browser does not support video playback.
+              </video>
+            {% endif %}
+
+            {% if scene.job_id %}
+              <p class="mt-2 text-xs text-neutral-500">
+                Job: <a href="{% url 'generator:job_detail' pk=scene.job.pk %}" class="text-purple-400 underline">{{ scene.job.id.hex|truncatechars:8 }}</a>
+                {% if scene.job.status == 'FAILED' and scene.job.message %}
+                  — <span class="text-red-300">{{ scene.job.message|truncatechars:80 }}</span>
+                {% endif %}
+              </p>
+            {% endif %}
+          </div>
+          <div class="flex shrink-0 flex-col items-end gap-2">
+            <div class="flex gap-1">
+              {% if not forloop.first %}
+                <form method="post" action="{% url 'films:scene_move' project_pk=project.pk scene_pk=scene.pk direction='up' %}">
+                  {% csrf_token %}
+                  <button type="submit" title="Move scene up" aria-label="Move scene up"
+                          class="rounded-md border border-neutral-600 bg-neutral-800 px-2 py-1 text-xs text-neutral-300 transition hover:bg-neutral-700">↑</button>
+                </form>
+              {% endif %}
+              {% if not forloop.last %}
+                <form method="post" action="{% url 'films:scene_move' project_pk=project.pk scene_pk=scene.pk direction='down' %}">
+                  {% csrf_token %}
+                  <button type="submit" title="Move scene down" aria-label="Move scene down"
+                          class="rounded-md border border-neutral-600 bg-neutral-800 px-2 py-1 text-xs text-neutral-300 transition hover:bg-neutral-700">↓</button>
+                </form>
+              {% endif %}
+            </div>
+            <div class="flex gap-2">
+              {% if scene.job.status == 'PENDING' or scene.job.status == 'RUNNING' %}
+                <a href="{% url 'generator:job_detail' pk=scene.job.pk %}"
+                   class="rounded-md border border-amber-700 bg-amber-900/20 px-2 py-1 text-xs text-amber-300 transition hover:bg-amber-900/40">
+                  Generating…
+                </a>
+              {% else %}
+                <form method="post" action="{% url 'films:scene_generate' pk=project.pk scene_pk=scene.pk %}">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="rounded-md border border-purple-700 bg-purple-900/20 px-2 py-1 text-xs text-purple-300 transition hover:bg-purple-900/40">
+                    {% if scene.output_file %}Regenerate clip{% else %}Generate clip{% endif %}
+                  </button>
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'films:scene_delete' project_pk=project.pk scene_pk=scene.pk %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="rounded-md border border-red-700 bg-red-900/20 px-2 py-1 text-xs text-red-300 transition hover:bg-red-900/40"
+                        onclick="return confirm('Remove this scene from the film?')">
+                  Delete
+                </button>
+              </form>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <div class="mb-6 rounded-lg border border-dashed border-neutral-700 bg-neutral-800/40 p-6 text-center">
+      <p class="text-sm text-neutral-400">No scenes yet. Add scenes to build your short film.</p>
+      <a href="{% url 'films:film_edit' pk=project.pk %}" class="mt-3 inline-flex rounded-md border border-purple-700 bg-purple-900/30 px-4 py-2 text-sm font-medium text-purple-200 transition hover:bg-purple-900/50">Add a scene</a>
+    </div>
+  {% endif %}
+
+  <p class="mb-6 text-xs text-neutral-500">
+    Assembly uses FFmpeg: <span class="text-neutral-400">Cut</span> joins clips directly,
+    while other transitions crossfade and re-encode the movie (video only).
+    {% if not project.can_assemble %}
+      At least two scenes with successfully generated clips are required first.
+    {% endif %}
+  </p>
+
+  {% if project.assembled_video %}
+    <div class="mt-8 rounded-lg border border-neutral-700 bg-neutral-800/60 p-5">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Assembled movie</h2>
+      <div class="flex items-center gap-4">
+        <video controls class="h-48 w-full rounded-md border border-neutral-700 bg-neutral-900 object-contain">
+          <source src="{{ project.assembled_video.url }}" type="video/mp4">
+          Your browser does not support video playback.
+        </video>
+      </div>
+      <div class="mt-4 flex gap-3">
+        <a href="{% url 'films:film_download' pk=project.pk %}" class="rounded-md border border-purple-700 bg-purple-900/30 px-4 py-2 text-sm font-medium text-purple-200 transition hover:bg-purple-900/50">Download movie</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

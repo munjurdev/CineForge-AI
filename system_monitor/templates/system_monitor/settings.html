@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">Settings</h1>
+    <p class="mt-1 text-sm text-neutral-400">
+      Read-only view of the active configuration. Change values in <code class="rounded bg-neutral-800 px-1.5 py-0.5 text-xs text-purple-300">.env</code> and restart the server.
+    </p>
+  </header>
+
+  <div class="grid gap-6 lg:grid-cols-2">
+    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+      <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Django</h2>
+      <dl class="space-y-2 text-sm">
+        {% include "system_monitor/_config_row.html" with label="Debug mode" value=config.debug %}
+        {% include "system_monitor/_config_row.html" with label="Allowed hosts" value=config.allowed_hosts %}
+        {% include "system_monitor/_config_row.html" with label="Time zone" value=config.time_zone %}
+        {% include "system_monitor/_config_row.html" with label="System monitor" value=config.system_monitor_enabled %}
+      </dl>
+    </section>
+
+    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+      <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Media and uploads</h2>
+      <dl class="space-y-3 text-sm">
+        <div>
+          <dt class="text-neutral-400">Media root</dt>
+          <dd class="mt-0.5 break-all font-mono text-xs text-neutral-300">{{ config.media_root }}</dd>
+        </div>
+        <div>
+          <dt class="text-neutral-400">Static root</dt>
+          <dd class="mt-0.5 break-all font-mono text-xs text-neutral-300">{{ config.static_root }}</dd>
+        </div>
+        {% include "system_monitor/_config_row.html" with label="Upload limit" value=config.max_upload_size_mb|stringformat:"s"|add:" MB" %}
+        {% include "system_monitor/_config_row.html" with label="Allowed images" value=config.allowed_image_extensions %}
+      </dl>
+    </section>
+
+    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+      <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Inference</h2>
+      <dl class="space-y-2 text-sm">
+        {% include "system_monitor/_config_row.html" with label="Default adapter" value=config.default_adapter %}
+        {% include "system_monitor/_config_row.html" with label="ComfyUI URL" value=config.comfyui_base_url %}
+        {% include "system_monitor/_config_row.html" with label="ComfyUI timeout" value=config.comfyui_timeout|stringformat:"s"|add:" s" %}
+      </dl>
+    </section>
+
+    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+      <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Background tasks</h2>
+      <dl class="space-y-3 text-sm">
+        <div>
+          <dt class="text-neutral-400">Broker</dt>
+          <dd class="mt-0.5 break-all font-mono text-xs text-neutral-300">{{ config.celery_broker }}</dd>
+        </div>
+        <div>
+          <dt class="text-neutral-400">Result backend</dt>
+          <dd class="mt-0.5 break-all font-mono text-xs text-neutral-300">{{ config.celery_backend }}</dd>
+        </div>
+        {% include "system_monitor/_config_row.html" with label="Run tasks eagerly" value=config.celery_eager %}
+      </dl>
+      <p class="mt-3 text-xs text-neutral-500">
+        Without Redis, set <code class="rounded bg-neutral-800 px-1 py-0.5 text-purple-300">CELERY_TASK_ALWAYS_EAGER=True</code> to run jobs in-process.
+      </p>
+    </section>
+  </div>
+
+  <section class="mt-6 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-400">Environment file</h2>
+    <p class="text-sm text-neutral-400">
+      Keep machine-specific values in <code class="rounded bg-neutral-800 px-1.5 py-0.5 text-xs text-purple-300">.env</code>
+      (gitignored). The committed template is <code class="rounded bg-neutral-800 px-1.5 py-0.5 text-xs text-purple-300">.env.example</code>.
+      Secrets such as <code class="rounded bg-neutral-800 px-1 py-0.5 text-xs text-purple-300">DJANGO_SECRET_KEY</code> are never displayed here.
+    </p>
+  </section>
+</div>
+{% endblock %}

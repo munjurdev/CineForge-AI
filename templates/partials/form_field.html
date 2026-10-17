@@ -1,0 +1,17 @@
+<div class="group">
+  <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-neutral-300">
+    {{ field.label }}
+    {% if field.field.required %}
+      <span class="text-red-400" aria-hidden="true">*</span>
+    {% else %}
+      <span class="font-normal text-neutral-500">(optional)</span>
+    {% endif %}
+  </label>
+  {{ field }}
+  {% for error in field.errors %}
+    <p class="mt-1 text-sm text-red-400">{{ error }}</p>
+  {% endfor %}
+  {% if field.help_text %}
+    <p class="mt-1 text-xs text-neutral-500">{{ field.help_text }}</p>
+  {% endif %}
+</div>

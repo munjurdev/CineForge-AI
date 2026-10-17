@@ -1,0 +1,69 @@
+{% comment %}
+Offline prompt assistant controls.
+
+Include with:
+  {% include "partials/prompt_assistant.html" with textarea_id=form.prompt.id_for_label %}
+
+The assistant is rule-based and never calls a language model, so the copy does
+not claim the prompt was AI-enhanced.
+{% endcomment %}
+<div class="rounded-lg border border-neutral-800 bg-neutral-950/40 p-3">
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="button"
+            data-prompt-assistant
+            data-textarea="{{ textarea_id }}"
+            class="rounded-md border border-purple-700/60 bg-purple-900/30 px-3 py-1.5 text-xs font-semibold text-purple-200 transition hover:bg-purple-900/50">
+      Improve prompt
+    </button>
+    <p data-prompt-assistant-status class="text-xs text-neutral-500" role="status" aria-live="polite">
+      Offline rule-based helper — adds framing, lighting, camera, and style hints. No AI model is called.
+    </p>
+  </div>
+</div>
+
+<script>
+(function () {
+  const endpoint = "{% url 'generator:enhance_prompt' %}";
+  document.querySelectorAll('[data-prompt-assistant]').forEach(function (button) {
+    const textarea = document.getElementById(button.dataset.textarea);
+    const status = button.parentElement.querySelector('[data-prompt-assistant-status]');
+    if (!textarea) return;
+
+    button.addEventListener('click', function () {
+      const token = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (!token) return;
+
+      button.disabled = true;
+      const original = button.textContent;
+      button.textContent = 'Improving…';
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': token.value,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({ prompt: textarea.value })
+      })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) throw new Error(data.error || 'Could not improve the prompt.');
+            return data;
+          });
+        })
+        .then(function (data) {
+          textarea.value = data.prompt;
+          textarea.focus();
+          if (status) status.textContent = 'Rewritten with the offline rule-based helper. Review it before generating.';
+        })
+        .catch(function (error) {
+          if (status) status.textContent = error.message;
+        })
+        .finally(function () {
+          button.disabled = false;
+          button.textContent = original;
+        });
+    });
+  });
+})();
+</script>

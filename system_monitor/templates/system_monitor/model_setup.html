@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Model Setup — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">Model setup</h1>
+    <p class="mt-1 max-w-3xl text-sm text-neutral-400">Install and configure a compatible local video-generation backend. CineForge AI integrates with an existing model through a modular adapter — it does not download model weights automatically.</p>
+  </header>
+
+  <div class="mb-6 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 text-sm sm:grid-cols-3">
+    <div>
+      <p class="text-xs uppercase tracking-wide text-neutral-500">Default adapter</p>
+      <p class="mt-1 font-medium capitalize text-neutral-200">{{ default_adapter }}</p>
+    </div>
+    <div>
+      <p class="text-xs uppercase tracking-wide text-neutral-500">ComfyUI URL</p>
+      <p class="mt-1 break-all font-mono text-xs text-neutral-300">{{ comfyui_base_url }}</p>
+    </div>
+    <div>
+      <p class="text-xs uppercase tracking-wide text-neutral-500">ComfyUI reachable</p>
+      <p class="mt-1 font-medium {% if info.tools.comfyui_running %}text-green-400{% else %}text-amber-400{% endif %}">
+        {% if info.tools.comfyui_running %}Yes{% else %}No{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+    <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Before you start</h2>
+    <ul class="list-disc pl-5 text-sm text-neutral-300 space-y-2">
+      <li>Verify that the model's official documentation and license allow local, non-commercial or commercial use as required.</li>
+      <li>Check Windows support, VRAM requirements, dependencies, and model size before downloading.</li>
+      <li>Choose a model that fits the hardware detected on the diagnostics page.</li>
+      <li>Never download large model weights automatically without reviewing the download size and storage requirements.</li>
+    </ul>
+    <p class="mt-4 text-sm text-neutral-400">Local generation does not require a paid API key, but hardware, electricity, storage, and generation time still have real costs.</p>
+  </div>
+
+  <div class="mt-6 grid gap-6 xl:grid-cols-2">
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Option A — ComfyUI (recommended for flexibility)</h2>
+      <p class="text-sm text-neutral-300">Run a local ComfyUI instance and point CineForge AI at it via the <code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">COMFYUI_BASE_URL</code> setting.</p>
+      <ul class="mt-3 list-disc pl-5 text-sm text-neutral-300 space-y-1">
+        <li>Install ComfyUI for your platform.</li>
+        <li>Install a maintained video-generation workflow and model inside ComfyUI.</li>
+        <li>Confirm the workflow works end-to-end in ComfyUI before using it here.</li>
+        <li>Set <code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">COMFYUI_BASE_URL</code> in your environment.</li>
+      </ul>
+      <p class="mt-3 text-xs text-neutral-500">The ComfyUI adapter talks to the running instance; it does not install or manage models for you.</p>
+    </section>
+
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Option B — Direct model adapter</h2>
+      <p class="text-sm text-neutral-300">For models that expose a direct runtime, a dedicated adapter can be added later. This project ships a CPU-only demo adapter (<code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">generator/adapters_demo.py</code>) for pipeline validation without a GPU.</p>
+      <ul class="mt-3 list-disc pl-5 text-sm text-neutral-300 space-y-1">
+        <li>Install the model backend and verify it runs locally.</li>
+        <li>Add or configure the corresponding adapter in <code class="rounded bg-neutral-700 px-1 py-0.5 text-xs text-purple-200">generator/adapters.py</code>.</li>
+        <li>Validate settings against the installed model before starting a job.</li>
+      </ul>
+      <p class="mt-3 text-xs text-neutral-500">If no suitable GPU is available, the application will explain the limitations on the diagnostics page and offer a CPU demo path.</p>
+    </section>
+  </div>
+
+  <div class="mt-8 rounded-lg border border-amber-700 bg-amber-900/20 p-4 text-sm text-amber-200">
+    <span class="font-medium">Important:</span>
+    <ul class="mt-1 list-disc pl-5">
+      <li>Character consistency and scene continuity in multi-scene films are model-dependent, not guaranteed by this application.</li>
+      <li>This app will not promise successful generation before verifying that a compatible model and workflow are installed.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

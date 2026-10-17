@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title|default:"Video"|truncatechars:60 }} — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">
+      {{ video.title|default:"Untitled video" }}
+    </h1>
+    <p class="mt-1 text-neutral-400">
+      Created {{ video.created|date:"c" }}
+    </p>
+  </header>
+
+  <div class="rounded-xl border border-neutral-700 bg-neutral-900/60 p-6 shadow">
+    <section class="mb-6">
+      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">Preview</h2>
+      <video
+        id="preview-video"
+        class="rounded-md border border-neutral-600 shadow"
+        controls
+        preload="metadata"
+        {% if video.file and video.file.url %}src="{{ video.file.url }}"{% endif %}
+      >
+        Your browser does not support the video element.
+      </video>
+      <div class="mt-3 flex flex-wrap gap-3">
+        <a href="{% url 'library:video_download' pk=video.pk %}"
+           class="rounded-md border border-purple-600 bg-purple-900/40 px-4 py-2 text-sm font-semibold text-purple-200 hover:bg-purple-900/60">
+          Download MP4
+        </a>
+        {% if video.file and video.file.url %}
+          <a href="{{ video.file.url }}"
+             class="rounded-md border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700">
+            Open in new tab
+          </a>
+        {% endif %}
+        <form method="post" action="{% url 'library:video_delete' pk=video.pk %}" class="inline">
+          {% csrf_token %}
+          <button type="submit"
+                  class="rounded-md border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700"
+                  onclick="return confirm('Delete this video and its files?')">
+            Delete
+          </button>
+        </form>
+      </div>
+    </section>
+
+    {% if video.prompt_summary %}
+      <section class="mb-6">
+        <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-400">Prompt summary</h2>
+        <p class="text-neutral-200">{{ video.prompt_summary }}</p>
+      </section>
+    {% endif %}
+
+    <section class="mb-6">
+      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">Metadata</h2>
+      <dl class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-lg border border-neutral-700 bg-neutral-800/40 p-3">
+          <dt class="text-xs text-neutral-500">Duration</dt>
+          <dd class="text-neutral-200">{{ video.duration_display }}</dd>
+        </div>
+        <div class="rounded-lg border border-neutral-700 bg-neutral-800/40 p-3">
+          <dt class="text-xs text-neutral-500">Resolution</dt>
+          <dd class="text-neutral-200">
+            {% if video.width and video.height %}{{ video.width }} × {{ video.height }}{% else %}—{% endif %}
+          </dd>
+        </div>
+        <div class="rounded-lg border border-neutral-700 bg-neutral-800/40 p-3">
+          <dt class="text-xs text-neutral-500">File size</dt>
+          <dd class="text-neutral-200">{{ video.natural_size }}</dd>
+        </div>
+        <div class="rounded-lg border border-neutral-700 bg-neutral-800/40 p-3">
+          <dt class="text-xs text-neutral-500">Codec / format</dt>
+          <dd class="text-neutral-200">{{ video.codec|default:"—" }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    {% if video.job %}
+      <section class="mb-6">
+        <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-400">Source job</h2>
+        <a href="{% url 'generator:job_detail' pk=video.job.pk %}"
+           class="inline-block rounded-md border border-neutral-600 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700">
+          Job {{ video.job.id.hex|truncatechars:8 }} — {{ video.job.get_status_display }}
+        </a>
+      </section>
+    {% endif %}
+
+    <a href="{% url 'library:video_list' %}"
+       class="rounded-md border border-neutral-600 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700">
+      Back to library
+    </a>
+  </div>
+</div>
+{% endblock %}

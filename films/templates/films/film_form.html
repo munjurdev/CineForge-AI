@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{% if project %}Edit {{ project.title }}{% else %}New film project{% endif %} — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
+  <h1 class="mb-2 text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">{% if project %}Edit film project{% else %}New film project{% endif %}</h1>
+  <p class="mb-8 text-sm text-neutral-400">Give your film a title and optional notes about character consistency and continuity.</p>
+
+  <form method="post" class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-6 backdrop-blur-sm">
+    {% csrf_token %}
+
+    {% if form.errors %}
+      <div class="mb-4 rounded-md bg-red-900/20 border border-red-700/50 p-4 text-sm text-red-300">
+        Please correct the errors below.
+      </div>
+    {% endif %}
+
+    {% for field in form %}
+      <div class="mb-4">
+        <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-neutral-300">{{ field.label }}{% if field.field.required %} <span class="text-red-400">*</span>{% endif %}</label>
+        {{ field }}
+        {% for error in field.errors %}
+          <p class="mt-1 text-xs text-red-400">{{ error }}</p>
+        {% endfor %}
+        {% if field.help_text %}
+          <p class="mt-1 text-xs text-neutral-500">{{ field.help_text }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="mb-6 flex items-center justify-end gap-3">
+      {% if project %}
+        <a href="{% url 'films:film_detail' pk=project.pk %}" class="rounded-md border border-neutral-600 bg-neutral-700 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-600">Cancel</a>
+      {% else %}
+        <a href="{% url 'films:film_list' %}" class="rounded-md border border-neutral-600 bg-neutral-700 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-600">Cancel</a>
+      {% endif %}
+      <button type="submit" class="rounded-md border border-transparent bg-purple-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-600">
+        {% if project %}Save changes{% else %}Create project{% endif %}
+      </button>
+    </div>
+
+  </form>
+
+  {% if add_scene %}
+    <form method="post" action="{% url 'films:scene_add' pk=project.pk %}" class="mt-6 rounded-md border border-dashed border-neutral-700 bg-neutral-800/40 p-5">
+      {% csrf_token %}
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-sm font-medium text-neutral-200">Add a scene</h2>
+        <a href="{% url 'films:character_list' %}" class="text-xs font-medium text-purple-400 underline hover:text-purple-300">
+          Manage character references
+        </a>
+      </div>
+      <p class="mb-3 text-xs text-neutral-500">
+        Transition choices are applied when the movie is assembled: “Cut” joins clips directly,
+        other options crossfade over the configured transition length.
+      </p>
+      {% for field in scene_form %}
+        <div class="mb-3">
+          <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-neutral-300">{{ field.label }}{% if field.field.required %} <span class="text-red-400">*</span>{% endif %}</label>
+          {{ field }}
+          {% for error in field.errors %}
+            <p class="mt-1 text-xs text-red-400">{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="rounded-md border border-purple-700 bg-purple-900/30 px-4 py-2 text-sm font-medium text-purple-200 transition hover:bg-purple-900/50">Add scene</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

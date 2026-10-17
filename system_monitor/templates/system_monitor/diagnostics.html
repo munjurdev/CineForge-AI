@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Diagnostics — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">System diagnostics</h1>
+      <p class="mt-1 max-w-3xl text-sm text-neutral-400">Detected hardware, software, and backend availability. This information helps you understand whether your machine can run local generation.</p>
+    </div>
+    <a href="{% url 'system_monitor:diagnostics' %}"
+       class="rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-700">
+      Re-run checks
+    </a>
+  </header>
+
+  <div class="grid gap-6 xl:grid-cols-2">
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">System</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-neutral-400">OS</span><span class="text-neutral-200">{{ info.os }}</span></div>
+        <div class="flex justify-between"><span class="text-neutral-400">Python executable</span><span class="text-neutral-200 break-all">{{ info.python.executable }}</span></div>
+        <div class="flex justify-between"><span class="text-neutral-400">Python version</span><span class="text-neutral-200">{{ info.python.version }}</span></div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Memory</h2>
+      <div class="space-y-2 text-sm">
+        {% if info.memory.total %}
+          <div class="flex justify-between"><span class="text-neutral-400">Total RAM</span><span class="text-neutral-200">{{ info.memory.total|filesizeformat }}</span></div>
+          <div class="flex justify-between"><span class="text-neutral-400">Available</span><span class="text-neutral-200">{{ info.memory.available|filesizeformat }}</span></div>
+          <div class="flex justify-between"><span class="text-neutral-400">Usage</span><span class="text-neutral-200">{{ info.memory.percent|default:"—" }}%</span></div>
+        {% else %}
+          <div class="text-neutral-400">Could not detect memory stats.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">GPU / VRAM</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-neutral-400">CUDA available</span><span class="text-neutral-200">{% if info.gpu.cuda_available %}Yes{% else %}No{% endif %}</span></div>
+        {% if info.gpu.device_name %}
+          <div class="flex justify-between"><span class="text-neutral-400">Device</span><span class="text-neutral-200">{{ info.gpu.device_name }}</span></div>
+          <div class="flex justify-between"><span class="text-neutral-400">VRAM total</span><span class="text-neutral-200">{{ info.gpu.vram_total_mb|default:"—" }} MB</span></div>
+        {% else %}
+          <div class="text-neutral-400">No CUDA GPU detected or torch is not installed.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Disk space (media)</h2>
+      <div class="space-y-2 text-sm">
+        {% if info.disk.total %}
+          <div class="flex justify-between"><span class="text-neutral-400">Total</span><span class="text-neutral-200">{{ info.disk.total|filesizeformat }}</span></div>
+          <div class="flex justify-between"><span class="text-neutral-400">Free</span><span class="text-neutral-200">{{ info.disk.free|filesizeformat }}</span></div>
+        {% else %}
+          <div class="text-neutral-400">Could not detect disk space.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Tools</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between"><span class="text-neutral-400">ffmpeg</span><span class="text-neutral-200">{% if info.tools.ffmpeg %}{{ info.tools.ffmpeg }}{% else %}Not found{% endif %}</span></div>
+        <div class="flex justify-between"><span class="text-neutral-400">ffprobe</span><span class="text-neutral-200">{% if info.tools.ffprobe %}{{ info.tools.ffprobe }}{% else %}Not found{% endif %}</span></div>
+        <div class="flex justify-between"><span class="text-neutral-400">ffmpeg version</span><span class="text-neutral-200 break-all">{{ info.tools.ffmpeg_version|default:"—" }}</span></div>
+        <div class="flex justify-between"><span class="text-neutral-400">ComfyUI reachable</span><span class="text-neutral-200">{% if info.tools.comfyui_running %}Yes{% else %}No{% endif %}</span></div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-neutral-700 bg-neutral-800/60 p-5 backdrop-blur-sm">
+      <h2 class="mb-3 text-sm font-medium uppercase tracking-wider text-neutral-400">Model suggestions</h2>
+      <ul class="list-disc pl-5 text-sm text-neutral-300">
+        {% for suggestion in info.model_suggestions %}
+          <li>{{ suggestion }}</li>
+        {% empty %}
+          <li>Unable to suggest models based on detected hardware.</li>
+        {% endfor %}
+      </ul>
+      <p class="mt-3 text-xs text-neutral-500">Model support and VRAM requirements depend on the specific workflow and quantization. Always verify in the model's official documentation.</p>
+    </section>
+  </div>
+
+  {% if info.warnings %}
+    <div class="mt-8 rounded-lg border border-amber-700 bg-amber-900/20 p-4 text-sm text-amber-200">
+      <span class="font-medium">Notes:</span>
+      <ul class="mt-1 list-disc pl-5">
+        {% for warning in info.warnings %}
+          <li>{{ warning }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

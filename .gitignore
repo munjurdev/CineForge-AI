@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---------------------------------------------------------------------------
+# Virtual environments
+# ---------------------------------------------------------------------------
+venv/
+
+# ---------------------------------------------------------------------------
+# Django
+# ---------------------------------------------------------------------------
+.env
+*.log
+db.sqlite3
+db.sqlite3-journal
+/tmp/
+
+# Static files collected by `collectstatic` (regenerated, never committed)
+/staticfiles/
+
+# Local uploads, generated videos, and temp files
+/media/*
+!/media/.gitkeep
+!/media/uploads/
+!/media/temp/
+!/media/outputs/
+
+# Runtime logs
+/logs/*
+!/logs/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Tooling / editors
+# ---------------------------------------------------------------------------
+node_modules/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

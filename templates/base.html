@@ -1,0 +1,169 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CineForge AI — local, open-model AI video generation for short films.">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>{% block title %}CineForge AI{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+  <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-100 antialiased">
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-purple-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">
+    Skip to content
+  </a>
+
+  <div class="min-h-screen sm:flex">
+    <!-- Desktop sidebar -->
+    <aside class="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-neutral-800 bg-neutral-900/80 p-4 sm:flex">
+      <a href="{% url 'core:home' %}" class="mb-6 flex items-center gap-2 rounded-lg p-1">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-sm font-bold text-white">CF</span>
+        <span>
+          <span class="block text-lg font-bold leading-tight text-neutral-100">CineForge</span>
+          <span class="block text-xs text-neutral-500">Local AI video</span>
+        </span>
+      </a>
+
+      <nav class="flex-1 space-y-1" aria-label="Main">
+        <a href="{% url 'core:dashboard' %}"{% if page == 'dashboard' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'dashboard' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="{% url 'generator:generate_video' %}"{% if page == 'generate_video' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'generate_video' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          Text to Video
+        </a>
+
+        <a href="{% url 'generator:image_to_video' %}"{% if page == 'image_to_video' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'image_to_video' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+          </svg>
+          Image to Video
+        </a>
+
+        <a href="{% url 'films:film_list' %}"{% if page == 'film_list' or page == 'film_form' or page == 'film_detail' or page == 'character_list' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'film_list' or page == 'film_form' or page == 'film_detail' or page == 'character_list' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125z" />
+          </svg>
+          Short-Film Studio
+        </a>
+
+        <a href="{% url 'library:video_list' %}"{% if page == 'video_list' or page == 'video_detail' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'video_list' or page == 'video_detail' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          Video Library
+        </a>
+
+        <a href="{% url 'generator:job_list' %}"{% if page == 'job_list' or page == 'job_detail' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'job_list' or page == 'job_detail' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.806c0-.649.416-1.139.975-1.224" />
+          </svg>
+          History
+        </a>
+
+        <a href="{% url 'system_monitor:diagnostics' %}"{% if page == 'diagnostics' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'diagnostics' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5M3.75 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5" />
+          </svg>
+          Diagnostics
+        </a>
+
+        <a href="{% url 'system_monitor:model_setup' %}"{% if page == 'model_setup' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'model_setup' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-3.02 3.02a2 2 0 01-2.44 0l-1.83-1.83a2 2 0 010-2.83l1.83-1.83a2 2 0 012.44 0l3.02 3.02a2 2 0 010 2.83l-1.83 1.83a2 2 0 01-2.44 0l-3.02-3.02a2 2 0 012.44 0l1.83 1.83z" />
+          </svg>
+          Model Setup
+        </a>
+
+        <a href="{% url 'system_monitor:settings' %}"{% if page == 'settings' %} aria-current="page"{% endif %}
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition {% if page == 'settings' %}bg-purple-900/30 text-purple-200{% else %}text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200{% endif %}">
+          <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.355c.528-.15 1.066.056 1.288.477l1.234 2.058c.142.243.167.554.077.815l-.927 2.781c-.131.39-.47.646-.82.646H9.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.063-.374-.313-.686-.645-.87a3.017 3.017 0 00-.22-.127c-.324-.196-.72-.257-1.075-.124l-1.217.355c-.528-.15-1.066-.056-1.288-.477l-1.234-2.058c-.142-.243-.167-.554-.077-.815l.927-2.781c.131-.39.47-.646.82-.646z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="mt-auto flex shrink-0 items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-3 py-2 text-[11px] text-neutral-500">
+        <span class="h-1.5 w-1.5 rounded-full {% if debug %}bg-amber-500{% else %}bg-green-500{% endif %}" aria-hidden="true"></span>
+        {% if debug %}Development mode{% else %}Local production{% endif %}
+      </div>
+    </aside>
+
+    <div class="flex min-h-screen flex-1 flex-col">
+      <!-- Top header -->
+      <header class="sticky top-0 z-30 border-b border-neutral-800 bg-neutral-950/85 backdrop-blur">
+        <div class="flex h-16 items-center gap-4 px-4 sm:px-6">
+          <div class="flex items-center gap-3">
+            <a href="{% url 'core:home' %}" class="flex items-center gap-2 sm:hidden">
+              <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-600 text-sm font-bold text-white">CF</span>
+              <span class="text-base font-bold text-neutral-100">CineForge</span>
+            </a>
+            <div class="hidden sm:block">
+              <p class="text-[11px] font-medium uppercase tracking-widest text-neutral-500">Local workspace</p>
+              <p class="text-sm font-semibold text-neutral-200">CineForge AI</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Mobile navigation -->
+      <nav class="flex gap-1 overflow-x-auto border-b border-neutral-800 bg-neutral-900/60 px-3 py-2 sm:hidden" aria-label="Sections">
+        <a href="{% url 'generator:generate_video' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'generate_video' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Generate</a>
+        <a href="{% url 'generator:image_to_video' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'image_to_video' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Image to Video</a>
+        <a href="{% url 'films:film_list' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'film_list' or page == 'film_form' or page == 'film_detail' or page == 'character_list' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Films</a>
+        <a href="{% url 'library:video_list' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'video_list' or page == 'video_detail' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Library</a>
+        <a href="{% url 'generator:job_list' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'job_list' or page == 'job_detail' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">History</a>
+        <a href="{% url 'system_monitor:diagnostics' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'diagnostics' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Diagnostics</a>
+        <a href="{% url 'system_monitor:model_setup' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'model_setup' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Model setup</a>
+        <a href="{% url 'system_monitor:settings' %}" class="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium {% if page == 'settings' %}bg-purple-900/40 text-purple-200{% else %}text-neutral-400{% endif %}">Settings</a>
+      </nav>
+
+      <main id="main-content" class="scroll-mt-16 flex-1">
+        {% if messages %}
+          <div class="border-b border-neutral-800 bg-neutral-900/80 px-4 py-3 sm:px-6" role="status" aria-live="polite">
+            {% for message in messages %}
+              <div class="mb-2 rounded-lg border p-3 text-sm last:mb-0
+                {% if message.tags == 'error' %}border-red-800 bg-red-900/40 text-red-200
+                {% elif message.tags == 'success' %}border-green-800 bg-green-900/40 text-green-200
+                {% elif message.tags == 'warning' %}border-amber-800 bg-amber-900/40 text-amber-200
+                {% else %}border-neutral-700 bg-neutral-800 text-neutral-200{% endif %}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="border-t border-neutral-800 bg-neutral-950 px-4 py-3 sm:px-6">
+        <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-1 text-center text-[11px] text-neutral-500 sm:justify-between sm:text-left">
+          <p class="m-0 leading-5">Copyright © 2026 AlienTek Automation.</p>
+          <p class="m-0 leading-5">Designed &amp; Developed by <span class="font-medium text-neutral-400">Munjur Alom</span></p>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

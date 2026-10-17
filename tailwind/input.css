@@ -1,0 +1,25 @@
+/* Tailwind CSS source for the CineForge AI UI.
+ *
+ * Build with:
+ *   npm run build:css    (one-off, minified)
+ *   npm run watch:css    (rebuild on change)
+ *
+ * The compiled output is served from static/css/tailwind.css.
+ */
+@import "tailwindcss";
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid #a855f7;
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: #7e22ce;
+    color: #fff;
+  }
+}
+
+/* Templates and scripts scanned for utility classes. */
+@source "../templates/**/*.html";
+@source "../*/templates/**/*.html";

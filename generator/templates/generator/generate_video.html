@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Text to Video — {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8">
+    <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">Text to Video</h1>
+    <p class="mt-1 text-sm text-neutral-400">
+      Describe a scene and generate a cinematic video with your installed local model.
+    </p>
+    <p class="mt-1 text-sm text-neutral-500">
+      Generations run locally and depend on your GPU, VRAM, and model setup.
+    </p>
+  </header>
+
+  {% if form.non_field_errors %}
+    <div class="mb-6 rounded-lg border border-red-700 bg-red-900/40 p-4 text-sm text-red-200">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <form method="post" class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 shadow sm:p-6">
+    {% csrf_token %}
+
+    {% if form.errors %}
+      <div class="mb-5 rounded-lg border border-red-700 bg-red-900/30 p-4 text-sm text-red-200">
+        Some fields need attention. See the messages below.
+      </div>
+    {% endif %}
+
+    <div class="space-y-5">
+      {% include "partials/form_field.html" with field=form.prompt %}
+      {% include "partials/prompt_assistant.html" with textarea_id=form.prompt.id_for_label %}
+      {% include "partials/form_field.html" with field=form.negative_prompt %}
+
+      <fieldset class="rounded-xl border border-neutral-800 bg-neutral-950/30 p-4">
+        <legend class="px-2 text-sm font-semibold text-neutral-200">Generation settings</legend>
+        <p class="mb-4 mt-1 text-xs text-neutral-500">
+          Leave any setting blank to use the selected engine's preset.
+        </p>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% include "partials/form_field.html" with field=form.engine %}
+          {% include "partials/form_field.html" with field=form.model_name %}
+          {% include "partials/form_field.html" with field=form.duration_seconds %}
+          {% include "partials/form_field.html" with field=form.fps %}
+          {% include "partials/form_field.html" with field=form.width %}
+          {% include "partials/form_field.html" with field=form.height %}
+          {% include "partials/form_field.html" with field=form.aspect_ratio %}
+          {% include "partials/form_field.html" with field=form.seed %}
+          {% include "partials/form_field.html" with field=form.guidance_scale %}
+          {% include "partials/form_field.html" with field=form.steps %}
+        </div>
+      </fieldset>
+
+      {% if form.warnings %}
+        <div class="rounded-lg border border-amber-800 bg-amber-900/20 p-4 text-sm text-amber-200">
+          <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-300">Suggestions</h2>
+          <ul class="list-disc space-y-1 pl-5">
+            {% for _, msg in form.warnings %}
+              <li>{{ msg }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if prompt_examples %}
+        <details class="rounded-lg border border-neutral-800 bg-neutral-950/30 p-4">
+          <summary class="cursor-pointer select-none text-sm font-semibold text-neutral-200">
+            Prompt examples
+          </summary>
+          <div class="mt-3 space-y-2 text-sm text-neutral-300">
+            {% for example in prompt_examples %}
+              <div class="rounded-md border border-neutral-800 bg-neutral-900/60 p-3">
+                <p class="mb-1 font-medium text-neutral-100">{{ example.label }}</p>
+                <p class="text-neutral-400">{{ example.text }}</p>
+                <button type="button"
+                        class="mt-2 text-left text-sm font-medium text-purple-400 underline hover:text-purple-300"
+                        data-apply-prompt="{{ example.text|escapejs }}">
+                  Use this prompt
+                </button>
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      {% endif %}
+
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-5">
+        <a href="{% url 'generator:job_list' %}" class="text-sm text-neutral-400 hover:text-neutral-200">
+          View recent jobs
+        </a>
+        <div class="flex gap-3">
+          <a href="{% url 'core:dashboard' %}"
+             class="rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-700">
+            Cancel
+          </a>
+          <button type="submit"
+                  class="rounded-md bg-purple-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-purple-500">
+            Generate
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const textarea = document.getElementById('{{ form.prompt.id_for_label }}');
+  document.querySelectorAll('[data-apply-prompt]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      if (!textarea) return;
+      textarea.value = button.getAttribute('data-apply-prompt');
+      textarea.focus();
+    });
+  });
+})();
+</script>
+{% endblock %}
