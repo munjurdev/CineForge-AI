@@ -28,6 +28,16 @@ from .adapters import BaseAdapter, registry
 logger = logging.getLogger("cineforge.generator.adapters_demo")
 
 
+def _escape_drawtext(text: str) -> str:
+    """Escape a string for FFmpeg's single-quoted drawtext expression."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace("'", r"\'")
+        .replace(":", r"\:")
+        .replace("%", r"\%")
+    )
+
+
 class TestAdapter(BaseAdapter):
     """Minimal CPU video adapter for development and testing."""
 
@@ -90,20 +100,30 @@ class TestAdapter(BaseAdapter):
                 )
                 return None
 
-            # Draw a colour-sweep background with a tidy grid hint + text
-            # We generate frames via the "color" source + hue filter, or a
-            # gradient via geq for older ffmpeg. Prefer a simple color source
-            # with hue animation for wide compatibility.
+            # Draw a colour-sweep background with a tidy grid hint + text.
+            # Values are computed in Python because unquoted expressions with
+            # commas (e.g. min(48,24)) break FFmpeg's filtergraph parser.
+            font_size = max(10, min(height // 10, 24))
+            label = _escape_drawtext(prompt[:60])
+            hue = (
+                f"hue=h='mod({hue_start}+t*{hue_end - hue_start}/max(1,{frame_count - 1}),360)':s=1"
+            )
+            drawtext = (
+                f"drawtext=text='{label}':fontcolor=0xFFFFFF:fontsize={font_size}:"
+                f"x=(w-text_w)/2:y=(h-text_h)/2:"
+                f"enable='between(t,0.2,{max(0.4, duration - 0.2)})'"
+            )
+            grid = (
+                f"drawgrid=width={max(width // 8, 4)}:height={max(height // 6, 4)}:"
+                f"color=0x303030@0.25"
+            )
             cmd = [
                 ffmpeg_bin,
                 "-y",
                 "-f", "lavfi",
                 "-i", f"color=c=0x101010:s={width}x{height}:r={fps}:d={duration}",
                 "-filter_complex",
-                f"hue=h='mod({hue_start}+t*{hue_end - hue_start}/max(1,({frame_count}-1)),360)':s=1,"
-                f"drawtext=text='{prompt[:60]}':fontcolor=0xFFFFFF:fontsize=min({height//10},24):"
-                f"x=(w-text_w)/2:y=(h-text_h)/2:where=0:enable='between(t,0.2,{max(0.4,duration-0.2)})',"
-                f"drawgrid=width={max(width//8,4)}:height={max(height//6,4)}:color=0x303030@0.25",
+                f"{hue},{drawtext},{grid}",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
                 "-r", str(fps),
@@ -142,9 +162,7 @@ class TestAdapter(BaseAdapter):
                     "-f", "lavfi",
                     "-i", f"color=c=0x101010:s={width}x{height}:r={fps}:d={duration}",
                     "-vf",
-                    f"hue=h='mod({hue_start}+t*{hue_end - hue_start}/max(1,({frame_count}-1)),360)':s=1,"
-                    f"drawtext=text='{prompt[:60]}':fontcolor=0xFFFFFF:fontsize=min({height//10},24):"
-                    f"x=(w-text_w)/2:y=(h-text_h)/2",
+                    f"{hue},{drawtext}",
                     "-c:v", "libx264",
                     "-pix_fmt", "yuv420p",
                     "-r", str(fps),

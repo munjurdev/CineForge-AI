@@ -133,7 +133,7 @@ Copy `.env.example` to `.env` and review the values. Important settings include:
 - `COMFYUI_BASE_URL` — URL of the local ComfyUI instance, if used
 - `FFMPEG_BIN` — path to ffmpeg if not on PATH
 - `FILM_TRANSITION_SECONDS` — crossfade duration used when assembling a film
-- `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` — Redis or other broker/backend
+- `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` — Redis or other broker/backend (`redis` is installed from `requirements.txt` so Celery can resolve the broker transport even in eager mode)
 - `MEDIA_ROOT` and `STATIC_ROOT` — storage paths (relative paths resolve against the project root)
 
 All secrets are kept out of source code. The application reads configuration from environment variables via `python-decouple`.
@@ -324,10 +324,20 @@ On this machine:
 
 - Django system checks pass (`python manage.py check`).
 - Migrations are generated for every app with models and apply cleanly.
-- The full test suite runs and passes (125 tests, 1 skipped when FFmpeg is not
-  installed) for the components that do not require a GPU, including the
-  rule-based prompt assistant, scene generation bookkeeping, scene reordering,
-  character profiles, and crossfade filter-graph/command construction.
+- The full test suite runs and passes (130 tests; the real-FFmpeg integration
+  test is skipped when ffmpeg/ffprobe are absent) for the components that do not
+  require a GPU, including the rule-based prompt assistant, scene generation
+  bookkeeping, scene reordering, character profiles, and crossfade
+  filter-graph/command construction.
+- End-to-end prompt-to-video through the real form with the CPU test adapter and
+  a real FFmpeg 6.0 static build: job reached SUCCESS, produced a decodable
+  128×96 H.264 MP4 (~1s), created a library entry with probed metadata, and the
+  download endpoint returned the file.
+- End-to-end film workflow: two scenes generated real clips, hard-cut assembly
+  produced a decodable 2.0s movie, and selecting the Fade transition produced a
+  decodable 1.54s crossfaded movie (1s + 1s with a 0.5s overlap).
+- Older-FFmpeg fallback: with FFmpeg 4.1 (no `xfade` filter) assembly degraded
+  to hard cuts and reported that FFmpeg 4.3+ is required, instead of failing.
 - Every page renders without errors (home, dashboard, both generation forms,
   job list, library, films, character list, diagnostics, model setup, settings).
 - The project directory structure, settings, and app configs are consistent.
@@ -339,8 +349,7 @@ On this machine:
 
 - Real AI video generation with a local model (no compatible GPU/VRAM available on this machine).
 - The ComfyUI adapter against a running ComfyUI instance (no local ComfyUI instance available on this machine).
-- FFmpeg-based film assembly with real video files (FFmpeg is present but real scene clips are not available on this machine).
-- Celery worker behaviour with a real broker (Redis not available on this machine).
+- Celery worker behaviour with a real broker (Redis not available on this machine), although eager mode was exercised end to end.
 - Long-running job progress polling under real inference load.
 - A real FFmpeg crossfade render: the integration test is skipped when
   ffmpeg/ffprobe are not installed (they were unavailable in the verification

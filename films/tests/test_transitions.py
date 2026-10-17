@@ -168,6 +168,41 @@ class AssembleTransitionCommandTests(TestCase):
             self.assertIn("-c", captured["cmd"])
 
     @mock.patch("films.services.shutil.which", return_value="ffmpeg")
+    def test_assemble_falls_back_when_ffmpeg_lacks_xfade(self, which):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "media"
+            root.mkdir()
+            self._scenes(root)
+            calls: list[list[str]] = []
+
+            def fake_run(cmd, **kwargs):
+                calls.append(cmd)
+                if len(calls) == 1:
+                    return mock.Mock(
+                        returncode=1,
+                        stdout="",
+                        stderr="No such filter: 'xfade'",
+                    )
+                Path(cmd[-1]).write_bytes(b"x" * 4096)
+                return mock.Mock(returncode=0, stdout="", stderr="")
+
+            with self._settings(root):
+                with mock.patch(
+                    "generator.services.probe_video_file",
+                    return_value={"duration": 2.0, "width": 160, "height": 120},
+                ), mock.patch(
+                    "films.services.subprocess.run", side_effect=fake_run
+                ):
+                    result = assemble_film(self.project)
+
+            self.assertTrue(result["success"], result["message"])
+            self.assertIn("hard cuts", result["message"].lower())
+            self.assertIn("4.3", result["message"])
+            self.assertEqual(len(calls), 2)
+            self.assertNotIn("-filter_complex", calls[1])
+            self.assertIn("-f", calls[1])
+
+    @mock.patch("films.services.shutil.which", return_value="ffmpeg")
     def test_assemble_uses_copy_path_for_all_cuts(self, which):
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "media"

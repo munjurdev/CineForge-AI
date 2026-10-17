@@ -94,6 +94,36 @@ class TestAdapterGenerationTests(TestCase):
             result = TestAdapter().generate(job)
             self.assertIsNone(result)
 
+    def test_ffmpeg_command_is_filtergraph_safe(self):
+        from generator.models import GenerationJob
+
+        job = GenerationJob(
+            prompt="a beach at sunset: 50% clouds, warm light",
+            width=64,
+            height=64,
+            fps=12,
+            duration_seconds=1.0,
+        )
+        commands: list[list[str]] = []
+
+        def fake_run(cmd, **kwargs):
+            commands.append(cmd)
+            return mock.Mock(returncode=1, stdout="", stderr="boom")
+
+        with mock.patch("shutil.which", return_value="ffmpeg"):
+            with mock.patch("subprocess.run", side_effect=fake_run):
+                TestAdapter().generate(job)
+
+        command = next(cmd for cmd in commands if "-filter_complex" in cmd)
+        graph = command[command.index("-filter_complex") + 1]
+        # Unquoted expressions with commas break FFmpeg's filtergraph parser.
+        self.assertNotIn("fontsize=min(", graph)
+        self.assertIn("fontsize=10", graph)
+        # drawtext has no "where" option.
+        self.assertNotIn("where=", graph)
+        self.assertIn("\\:", graph)
+        self.assertIn("\\%", graph)
+
     def test_generate_returns_path_with_ffmpeg(self):
         from generator.models import GenerationJob
 

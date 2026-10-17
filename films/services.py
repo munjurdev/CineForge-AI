@@ -33,6 +33,14 @@ def _normalise_transition(value: str | None) -> str:
     return value if value in KNOWN_TRANSITIONS else "cut"
 
 
+def _xfade_unsupported(stderr: str | None) -> bool:
+    """Return True when FFmpeg reports that the xfade filter is missing."""
+    text = (stderr or "").lower()
+    if "xfade" not in text:
+        return False
+    return "no such filter" in text or "error initializing" in text
+
+
 def _even(value: Any) -> int:
     """Coerce a dimension to a positive even integer for yuv420p encoding."""
     try:
@@ -181,6 +189,32 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
         tmp = Path(tmpdir)
         output = tmp / "final.mp4"
 
+        def run_ffmpeg(command: list[str]):
+            """Run FFmpeg with capped output capture."""
+            return subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=600,
+            )
+
+        def concat_command() -> list[str]:
+            """Build the stream-copy concat command used for hard cuts."""
+            concat_list = tmp / "concat.txt"
+            concat_list.write_text(
+                "\n".join(f"file '{p.as_posix()}'" for p in input_files)
+            )
+            return [
+                ffmpeg_bin,
+                "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", str(concat_list),
+                "-c", "copy",
+                str(output),
+            ]
+
         if graph:
             cmd = [ffmpeg_bin, "-y"]
             for path in input_files:
@@ -195,28 +229,19 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
                 str(output),
             ]
         else:
-            concat_list = tmp / "concat.txt"
-            concat_list.write_text(
-                "\n".join(f"file '{p.as_posix()}'" for p in input_files)
-            )
-            cmd = [
-                ffmpeg_bin,
-                "-y",
-                "-f", "concat",
-                "-safe", "0",
-                "-i", str(concat_list),
-                "-c", "copy",
-                str(output),
-            ]
+            cmd = concat_command()
 
+        transitions_unavailable = False
         try:
-            proc = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=600,
-            )
+            proc = run_ffmpeg(cmd)
+            if proc.returncode != 0 and graph and _xfade_unsupported(proc.stderr):
+                logger.warning(
+                    "FFmpeg build lacks xfade support; retrying with hard cuts."
+                )
+                proc = run_ffmpeg(concat_command())
+                if proc.returncode == 0:
+                    graph = None
+                    transitions_unavailable = True
         except subprocess.TimeoutExpired:
             msg = "Film assembly timed out."
             logger.error("Assembly timed out for project %s", project.id)
@@ -263,6 +288,12 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
             message = (
                 "Film assembled successfully with crossfade transitions "
                 "(video only)."
+            )
+        elif transitions_unavailable:
+            message = (
+                "Film assembled successfully with hard cuts: the installed "
+                "FFmpeg does not support xfade transitions (FFmpeg 4.3+ is "
+                "required)."
             )
         elif transitions_requested:
             message = (

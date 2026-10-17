@@ -8,6 +8,8 @@ not require a GPU or a running Celery worker.
 """
 from __future__ import annotations
 
+from unittest import mock
+
 from django.test import TestCase
 
 from generator.models import GenerationJob
@@ -18,6 +20,7 @@ from generator.services import (
     job_set_progress,
     job_fail,
     job_succeed,
+    queue_generation_job,
 )
 
 
@@ -154,6 +157,55 @@ class JobLifecycleTests(TestCase):
             self.assertEqual(job.status, GenerationJob.Status.SUCCESS)
             self.assertEqual(job.progress, 1.0)
             self.assertIsNotNone(job.output_file)
+
+
+class QueueGenerationTests(TestCase):
+    @mock.patch("generator.tasks.run_generation_task.delay")
+    def test_eager_terminal_status_is_not_overwritten(self, delay):
+        job = GenerationJob.objects.create(
+            prompt="test", engine=GenerationJob.Engine.TEST
+        )
+
+        def finish_immediately(job_id):
+            GenerationJob.objects.filter(pk=job_id).update(
+                status=GenerationJob.Status.FAILED, message="Adapter failed"
+            )
+            return mock.Mock(id="task-1")
+
+        delay.side_effect = finish_immediately
+        queued, _reason = queue_generation_job(job)
+
+        self.assertTrue(queued)
+        job.refresh_from_db()
+        self.assertEqual(job.status, GenerationJob.Status.FAILED)
+        self.assertEqual(job.message, "Adapter failed")
+        self.assertEqual(job.task_id, "task-1")
+
+    @mock.patch("generator.tasks.run_generation_task.delay")
+    def test_unsaved_job_is_persisted_before_dispatch(self, delay):
+        job = GenerationJob(prompt="test", engine=GenerationJob.Engine.TEST)
+        delay.return_value = mock.Mock(id="task-3")
+
+        self.assertFalse(GenerationJob.objects.filter(pk=job.pk).exists())
+        queued, _reason = queue_generation_job(job)
+
+        self.assertTrue(queued)
+        self.assertTrue(GenerationJob.objects.filter(pk=job.pk).exists())
+
+    @mock.patch("generator.tasks.run_generation_task.delay")
+    def test_pending_job_is_marked_running_after_queueing(self, delay):
+        job = GenerationJob.objects.create(
+            prompt="test", engine=GenerationJob.Engine.TEST
+        )
+        delay.return_value = mock.Mock(id="task-2")
+
+        queued, _reason = queue_generation_job(job)
+
+        self.assertTrue(queued)
+        job.refresh_from_db()
+        self.assertEqual(job.status, GenerationJob.Status.RUNNING)
+        self.assertEqual(job.progress, 0.0)
+        self.assertEqual(job.task_id, "task-2")
 
 
 class ErrorActionabilityTests(TestCase):

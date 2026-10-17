@@ -237,7 +237,9 @@ def queue_generation_job(job: GenerationJob) -> tuple[bool, str | None]:
     """Queue the job for generation and return (queued, message)."""
     from .tasks import run_generation_task
 
-    if job.pk is None:
+    # UUID primary keys are assigned on instantiation, so a form-built job can
+    # have a pk without ever being written to the database.
+    if job._state.adding or job.pk is None:
         job.save()
 
     # Guard: don't queue terminal jobs
@@ -247,15 +249,22 @@ def queue_generation_job(job: GenerationJob) -> tuple[bool, str | None]:
     if job.status == GenerationJob.Status.RUNNING:
         return False, "Job is already running."
 
-    # Set running and dispatch
-    job.status = GenerationJob.Status.RUNNING
-    job.progress = 0.0
-    job.message = "Generation started."
-
     try:
         result = run_generation_task.delay(job_id=str(job.id))
         job.task_id = result.id
-        job.save(update_fields=["status", "progress", "message", "task_id", "updated"])
+
+        # In eager mode the task has already run and written a terminal state;
+        # refreshing avoids clobbering it with a stale RUNNING status.
+        job.refresh_from_db(
+            fields=["status", "progress", "message", "output_file", "error_type"]
+        )
+        update_fields = ["task_id", "updated"]
+        if job.status == GenerationJob.Status.PENDING:
+            job.status = GenerationJob.Status.RUNNING
+            job.progress = 0.0
+            job.message = "Generation started."
+            update_fields += ["status", "progress", "message"]
+        job.save(update_fields=update_fields)
         logger.info("Queued generation job %s with task %s", job.id, result.id)
         return True, f"Generation queued (task {result.id})."
     except Exception as exc:  # pragma: no cover - network/redis
