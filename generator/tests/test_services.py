@@ -66,6 +66,8 @@ class JobValidationTests(TestCase):
         self.assertEqual(job.fps, 24)
         self.assertEqual(job.duration_seconds, 2.0)
         self.assertEqual(job.aspect_ratio, "16:9")
+        self.assertEqual(job.guidance_scale, 5.0)
+        self.assertEqual(job.steps, 20)
 
     def test_width_too_small_rejected(self):
         job = GenerationJob(prompt="test", width=32)
@@ -151,12 +153,19 @@ class JobLifecycleTests(TestCase):
             src = tmp_path / "clip.mp4"
             src.write_bytes(b"fake")
             job = GenerationJob.objects.create(prompt="test", engine=GenerationJob.Engine.TEST)
-            with self.settings(MEDIA_OUTPUTS_DIR=tmp_path / "outputs"):
+            with self.settings(
+                MEDIA_ROOT=tmp_path,
+                MEDIA_OUTPUTS_DIR=tmp_path / "outputs",
+            ):
                 job_succeed(job, src)
             job.refresh_from_db()
             self.assertEqual(job.status, GenerationJob.Status.SUCCESS)
             self.assertEqual(job.progress, 1.0)
             self.assertIsNotNone(job.output_file)
+            self.assertEqual(
+                job.output_file.name,
+                f"outputs/{job.id.hex}/clip.mp4",
+            )
 
 
 class QueueGenerationTests(TestCase):

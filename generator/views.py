@@ -158,7 +158,7 @@ def retry_job(request, pk):
 
     new_job = job.create_retry()
     _relink_film_scenes(job, new_job)
-    queued, reason = queue_generation_job(new_job)
+    queued, reason = queue_generation_job(new_job, background=True)
     if queued:
         messages.success(request, reason or "Job queued for retry.")
     else:

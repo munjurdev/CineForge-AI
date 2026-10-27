@@ -60,3 +60,22 @@ class JobProgressViewTests(TestCase):
         self.assertContains(response, "Creating your video")
         self.assertContains(response, "data-status-url")
         self.assertContains(response, "Waiting for sampler steps")
+
+    @mock.patch("generator.views.queue_generation_job", return_value=(True, "started"))
+    def test_retry_redirects_to_background_processing_job(self, queue_job):
+        original = GenerationJob.objects.create(
+            prompt="A cinematic test",
+            status=GenerationJob.Status.CANCELLED,
+        )
+
+        response = self.client.post(
+            reverse("generator:job_retry", kwargs={"pk": original.pk})
+        )
+
+        self.assertEqual(response.status_code, 302)
+        retry = queue_job.call_args.args[0]
+        self.assertEqual(
+            response["Location"],
+            reverse("generator:job_detail", kwargs={"pk": retry.pk}),
+        )
+        self.assertTrue(queue_job.call_args.kwargs["background"])

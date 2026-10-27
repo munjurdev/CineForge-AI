@@ -392,13 +392,32 @@ class FreeTierWorkflowTests(TestCase):
         self.assertEqual(raw["38"]["inputs"]["type"], "wan")
         self.assertEqual(raw["55"]["class_type"], "Wan22ImageToVideoLatent")
         self.assertEqual(raw["3"]["inputs"]["sampler_name"], "uni_pc")
-        self.assertEqual(raw["3"]["inputs"]["cfg"], 5.0)
+        self.assertEqual(raw["3"]["inputs"]["cfg"], "{{GUIDANCE_SCALE}}")
+        self.assertEqual(raw["3"]["inputs"]["steps"], "{{STEPS}}")
         self.assertEqual(raw["58"]["class_type"], "SaveVideo")
         # Single model: no high/low-noise pair and no LoRA nodes.
         self.assertFalse(any(
             node.get("class_type") in {"LoraLoaderModelOnly", "KSamplerAdvanced"}
             for node in raw.values()
         ))
+
+    def test_shipped_workflow_uses_requested_quality_settings(self):
+        job = GenerationJob(
+            prompt="A cinematic test",
+            width=832,
+            height=480,
+            fps=24,
+            duration_seconds=2.0,
+            steps=30,
+            guidance_scale=5.5,
+        )
+        with self.settings(COMFYUI_WORKFLOW_PATH=str(self._path())):
+            workflow = ComfyUIAdapter()._load_workflow(job)
+
+        self.assertIsNotNone(workflow)
+        assert workflow is not None
+        self.assertEqual(workflow["3"]["inputs"]["steps"], 30)
+        self.assertEqual(workflow["3"]["inputs"]["cfg"], 5.5)
 
     def test_colab_notebook_exists_and_parses(self):
         from django.conf import settings

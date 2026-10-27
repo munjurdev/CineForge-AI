@@ -92,7 +92,8 @@ If your ComfyUI uses different models, export your own workflow instead:
 
 1. Start ComfyUI and build a working text-to-video (or image-to-video) workflow with the model installed on your machine.
 2. In ComfyUI use **Save (API Format)** to export the workflow JSON.
-3. Replace the prompt, seed, size, FPS, and duration values with these tokens:
+3. Replace the prompt, seed, size, FPS, duration, sampler steps, and guidance
+values with these tokens:
 
    | Token | Meaning |
    |---|---|
@@ -103,6 +104,8 @@ If your ComfyUI uses different models, export your own workflow instead:
    | `{{FRAMES}}` | Frame count derived from duration × FPS, rounded up to 4n+1 |
    | `{{DURATION}}` | Duration in seconds (only where the workflow expects seconds) |
    | `{{SEED}}` | Requested seed (0 when unset) |
+   | `{{STEPS}}` | Requested sampler steps (workflow presets apply when unset) |
+   | `{{GUIDANCE_SCALE}}` | Requested guidance scale (workflow preset applies when unset) |
    | `{{MODEL_NAME}}` | Optional model label |
 
    Tokens are substituted as JSON values, so a prompt containing quotes or newlines stays valid. Keep the surrounding quotes on **every** token — that way the workflow file itself stays valid JSON. Quotes around a numeric token are stripped at render time (`"length": "{{FRAMES}}"` → `"length": 49`), so ComfyUI still receives a JSON number; the bare form (`"length": {{FRAMES}}`) also works.

@@ -65,6 +65,8 @@ ComfyUI", the runtime disconnected — re-run notebook cells 1-4 and paste the
 
 1. Open `http://127.0.0.1:8000/generate/generate/`.
 2. Enter a prompt. Keep the first runs small: **832x480**, 2-3 s, 24 fps.
+   The bundled 5B workflow uses its documented **20 steps / CFG 5** baseline;
+   higher step counts take longer and do not guarantee a better result.
 3. Submit and keep the tab open — CineForge polls until the MP4 arrives, then it
    lands in the library as usual.
 

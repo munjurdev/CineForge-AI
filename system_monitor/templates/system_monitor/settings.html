@@ -12,7 +12,7 @@
   </header>
 
   <div class="grid gap-6 lg:grid-cols-2">
-    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <section class="min-w-0 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Django</h2>
       <dl class="space-y-2 text-sm">
         {% include "system_monitor/_config_row.html" with label="Debug mode" value=config.debug %}
@@ -22,7 +22,7 @@
       </dl>
     </section>
 
-    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <section class="min-w-0 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Media and uploads</h2>
       <dl class="space-y-3 text-sm">
         <div>
@@ -38,7 +38,7 @@
       </dl>
     </section>
 
-    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <section class="min-w-0 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Inference</h2>
       <dl class="space-y-2 text-sm">
         {% include "system_monitor/_config_row.html" with label="Default adapter" value=config.default_adapter %}
@@ -48,7 +48,7 @@
       </dl>
     </section>
 
-    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <section class="min-w-0 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-400">Background tasks</h2>
       <dl class="space-y-3 text-sm">
         <div>

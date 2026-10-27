@@ -68,7 +68,8 @@ Replace the prompt, negative prompt, seed, size, FPS, and duration values inside
 the exported JSON with these tokens before using it:
 
 `{{PROMPT}}`, `{{NEGATIVE_PROMPT}}`, `{{WIDTH}}`, `{{HEIGHT}}`, `{{FPS}}`,
-`{{FRAMES}}`, `{{DURATION}}`, `{{SEED}}`, `{{MODEL_NAME}}`.
+`{{FRAMES}}`, `{{DURATION}}`, `{{SEED}}`, `{{STEPS}}`,
+`{{GUIDANCE_SCALE}}`, `{{MODEL_NAME}}`.
 
 Keep the surrounding quotes on every token — the file then stays valid JSON,
 so editors and linters parse it without errors. Quotes around numeric tokens

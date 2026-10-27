@@ -61,8 +61,8 @@
   "3": {
     "inputs": {
       "seed": "{{SEED}}",
-      "steps": 20,
-      "cfg": 5.0,
+      "steps": "{{STEPS}}",
+      "cfg": "{{GUIDANCE_SCALE}}",
       "sampler_name": "uni_pc",
       "scheduler": "simple",
       "denoise": 1.0,

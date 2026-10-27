@@ -41,8 +41,8 @@ PRESETS: dict[str, dict[str, Any]] = {
         "fps": 24,
         "duration_seconds": 2.0,
         "aspect_ratio": "16:9",
-        "guidance_scale": 7.5,
-        "steps": 25,
+        "guidance_scale": 5.0,
+        "steps": 20,
     },
     "WAN": {
         "width": 832,
@@ -573,4 +573,4 @@ def _copy_or_move_to_media_output(job: GenerationJob, src: Path) -> str | None:
         shutil.copy2(str(src), str(dest_path))
         logger.info("Copied output %s -> %s", src, dest_path)
 
-    return str(dest_path)
+    return dest_path.relative_to(settings.MEDIA_ROOT).as_posix()

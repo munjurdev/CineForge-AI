@@ -49,7 +49,7 @@
   </section>
 
   <div class="mt-6 grid gap-6 lg:grid-cols-2">
-    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <section class="min-w-0 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-400">System readiness</h2>
         <a href="{% url 'system_monitor:diagnostics' %}" class="text-xs text-purple-400 hover:text-purple-300">Full diagnostics</a>
@@ -94,7 +94,7 @@
       {% endif %}
     </section>
 
-    <section class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+    <section class="min-w-0 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-sm font-semibold uppercase tracking-wide text-neutral-400">Recent jobs</h2>
         <a href="{% url 'generator:job_list' %}" class="text-xs text-purple-400 hover:text-purple-300">All jobs</a>

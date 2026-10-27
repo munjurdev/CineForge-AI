@@ -392,6 +392,10 @@ class ComfyUIAdapter(BaseAdapter):
         negative = getattr(job, "negative_prompt", "") if job is not None else ""
         model_name = getattr(job, "model_name", "") if job is not None else ""
         seed = getattr(job, "seed", None) if job is not None else None
+        steps = getattr(job, "steps", None) if job is not None else None
+        guidance_scale = (
+            getattr(job, "guidance_scale", None) if job is not None else None
+        )
 
         values = {
             "PROMPT": _json_string(prompt or ""),
@@ -402,6 +406,10 @@ class ComfyUIAdapter(BaseAdapter):
             "FPS": str(int(getattr(job, "fps", 0) or 24) if job else 24),
             "DURATION": str(float(getattr(job, "duration_seconds", 0) or 2.0) if job else 2.0),
             "SEED": str(int(seed) if seed is not None else 0),
+            "STEPS": str(int(steps) if steps is not None else 20),
+            "GUIDANCE_SCALE": str(
+                float(guidance_scale) if guidance_scale is not None else 5.0
+            ),
             "FRAMES": str(_frame_count(job)),
         }
         def _substitute(match: re.Match[str]) -> str:
