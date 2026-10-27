@@ -32,13 +32,21 @@ been executed on this machine.
    (Text-to-Video, or Image-to-Video for the image workflow).
 2. Let ComfyUI Manager download the required models (several GB) — this happens
    on the cloud pod's disk, not on your PC.
-3. Run the template once in the ComfyUI UI with a short prompt (e.g. 2 seconds,
+3. For the shipped `wan22_t2v_api.json` workflow also install the two
+   **lightx2v 4-step** LoRAs into `models/loras/`
+   (`wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors` and
+   `..._low_noise.safetensors`). They cut sampling from 20 steps to 4; without
+   them ComfyUI rejects the job with a `lora not found` error.
+4. Run the template once in the ComfyUI UI with a short prompt (e.g. 2 seconds,
    480p) and confirm it produces an MP4. Do not continue until this works.
 
 ## 3. Export and tokenise the workflow
 
 1. In ComfyUI: **Workflow → Export (API)** / **Save (API Format)**.
 2. Save the JSON on your PC as `comfyui/workflows/wan22_t2v_api.json`.
+   The repository already ships a Wan 2.2 T2V workflow at that path — if your
+   pod uses the models listed above you can skip this export entirely and just
+   point `COMFYUI_WORKFLOW_PATH` at the shipped file.
 3. Open it and replace the values CineForge should control with tokens:
 
    | Token | Where to put it |
@@ -47,15 +55,18 @@ been executed on this machine.
    | `{{NEGATIVE_PROMPT}}` | negative prompt text field |
    | `{{WIDTH}}`, `{{HEIGHT}}` | latent/video size fields |
    | `{{FPS}}` | frame-rate field, if the workflow has one |
-   | `{{DURATION}}` | length/frame-count field, if present |
+   | `{{FRAMES}}` | frame-count/length field (duration × FPS, rounded to 4n+1) |
    | `{{SEED}}` | sampler seed |
    | `{{MODEL_NAME}}` | optional model label |
 
    Tokens are placed inside the existing JSON strings/numbers, e.g.
 
    ```json
-   "inputs": { "text": "{{PROMPT}}", "seed": "{{SEED}}" }
+   "inputs": { "text": "{{PROMPT}}", "noise_seed": "{{SEED}}" }
    ```
+
+   Keep the quotes: the file stays valid JSON while you edit it, and the
+   quotes around numeric tokens are removed when the job runs.
 
    Keep the surrounding quotes exactly as the exported file had them.
 

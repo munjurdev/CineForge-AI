@@ -1,0 +1,158 @@
+{
+  "90": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": { "title": "Load CLIP (UMT5-XXL)" }
+  },
+  "91": {
+    "inputs": {
+      "text": "{{NEGATIVE_PROMPT}}",
+      "clip": ["90", 0]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "CLIP Text Encode (Negative Prompt)" }
+  },
+  "92": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": { "title": "Load VAE (Wan)" }
+  },
+  "93": {
+    "inputs": {
+      "shift": 8.0,
+      "model": ["101", 0]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": { "title": "Model Sampling (high noise)" }
+  },
+  "94": {
+    "inputs": {
+      "shift": 8.0,
+      "model": ["102", 0]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": { "title": "Model Sampling (low noise)" }
+  },
+  "96": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": "{{SEED}}",
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 2,
+      "return_with_leftover_noise": "enable",
+      "model": ["105", 0],
+      "positive": ["99", 0],
+      "negative": ["91", 0],
+      "latent_image": ["104", 0]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": { "title": "KSampler (high noise stage, 4-step LoRA)" }
+  },
+  "95": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": "{{SEED}}",
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 2,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": ["106", 0],
+      "positive": ["99", 0],
+      "negative": ["91", 0],
+      "latent_image": ["96", 0]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": { "title": "KSampler (low noise stage)" }
+  },
+  "97": {
+    "inputs": {
+      "samples": ["95", 0],
+      "vae": ["92", 0]
+    },
+    "class_type": "VAEDecode",
+    "_meta": { "title": "VAE Decode" }
+  },
+  "100": {
+    "inputs": {
+      "fps": "{{FPS}}",
+      "images": ["97", 0]
+    },
+    "class_type": "CreateVideo",
+    "_meta": { "title": "Create Video" }
+  },
+  "98": {
+    "inputs": {
+      "filename_prefix": "video/CineForge",
+      "format": "auto",
+      "codec": "auto",
+      "video": ["100", 0]
+    },
+    "class_type": "SaveVideo",
+    "_meta": { "title": "Save Video" }
+  },
+  "99": {
+    "inputs": {
+      "text": "{{PROMPT}}",
+      "clip": ["90", 0]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "CLIP Text Encode (Positive Prompt)" }
+  },
+  "101": {
+    "inputs": {
+      "unet_name": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "Load Diffusion Model (high noise)" }
+  },
+  "102": {
+    "inputs": {
+      "unet_name": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "Load Diffusion Model (low noise)" }
+  },
+  "105": {
+    "inputs": {
+      "model": ["93", 0],
+      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors",
+      "strength_model": 1.0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "Load LoRA (lightx2v 4-step, high noise)" }
+  },
+  "106": {
+    "inputs": {
+      "model": ["94", 0],
+      "lora_name": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors",
+      "strength_model": 1.0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": { "title": "Load LoRA (lightx2v 4-step, low noise)" }
+  },
+  "104": {
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "length": "{{FRAMES}}",
+      "batch_size": 1
+    },
+    "class_type": "EmptyHunyuanLatentVideo",
+    "_meta": { "title": "Empty Latent Video" }
+  }
+}

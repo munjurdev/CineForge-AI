@@ -61,6 +61,38 @@ class FilmViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(FilmScene.objects.filter(project=self.project, title="Scene 1").exists())
 
+    def test_scene_form_dropdowns_are_styled_and_have_options(self):
+        """Regression: the dropdowns on the film page must render the dark-UI
+        classes and real options, not an unstyled/empty control."""
+        import re
+
+        # The scene form (and its dropdowns) renders on the edit page.
+        response = self.client.get(
+            reverse("films:film_edit", kwargs={"pk": self.project.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        for field_name in (
+            "scene-transition_in",
+            "scene-transition_out",
+            "scene-character_reference",
+        ):
+            match = re.search(
+                r'<select[^>]*name="' + field_name + r'"[^>]*>.*?</select>',
+                content,
+                re.S,
+            )
+            self.assertIsNotNone(match, f"missing select for {field_name}")
+            markup = match.group(0)
+            self.assertIn("bg-neutral-800", markup)
+            self.assertIn("text-neutral-100", markup)
+
+        # Transition selects must list the model's choices.
+        self.assertIn("Cut (hard cut)", content)
+        self.assertIn("Dissolve", content)
+        self.assertIn("Wipe up", content)
+
     def test_scene_delete(self):
         scene = FilmScene.objects.create(project=self.project, order=0, title="To delete", prompt="x")
         response = self.client.post(reverse("films:scene_delete", kwargs={"project_pk": self.project.pk, "scene_pk": scene.pk}), follow=True)

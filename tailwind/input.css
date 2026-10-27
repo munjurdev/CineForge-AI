@@ -18,6 +18,24 @@
     background-color: #7e22ce;
     color: #fff;
   }
+
+  /* The UI is dark, but native form controls default to a light colour
+     scheme. Without this the <select> popup paints a white list while the
+     option text inherits the form's light colour, i.e. invisible options. */
+  html {
+    color-scheme: dark;
+  }
+
+  select option,
+  select optgroup {
+    background-color: #262626;
+    color: #f5f5f5;
+  }
+
+  select option:checked {
+    background-color: #7e22ce;
+    color: #fff;
+  }
 }
 
 /* Templates and scripts scanned for utility classes. */

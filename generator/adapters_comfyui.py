@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,30 @@ logger = logging.getLogger("cineforge.generator.adapters_comfyui")
 def _json_string(value: Any) -> str:
     """Escape a value for embedding inside a JSON string in the template."""
     return json.dumps(str(value))[1:-1]
+
+
+# Tokens whose rendered value is JSON-escaped string content: they belong
+# between the quotes of an existing JSON string. Every other token renders as
+# a bare JSON value (number/boolean), which is what ComfyUI's type validation
+# expects for seed, size, fps and frame-count inputs.
+_STRING_TOKENS = frozenset({"PROMPT", "NEGATIVE_PROMPT", "MODEL_NAME"})
+
+# Matches a fully quoted token ("{{SEED}}") or a bare one ({{SEED}}). Quoted
+# form is tried first so the surrounding quotes are only ever consumed when
+# they wrap the token completely.
+_TOKEN_PATTERN = re.compile(r'"\{\{([A-Z_]+)\}\}"|\{\{([A-Z_]+)\}\}')
+
+
+def _frame_count(job: Any | None) -> int:
+    """Frame count for the latent video node, derived from duration and FPS.
+
+    Video VAEs compress four frames per latent step, so the count is rounded up
+    to the next 4n+1 value (81, 49, 33, ...) that Wan-style models expect.
+    """
+    duration = float(getattr(job, "duration_seconds", 0) or 2.0) if job else 2.0
+    fps = int(getattr(job, "fps", 0) or 24) if job else 24
+    frames = max(1, round(duration * fps))
+    return ((frames + 3) // 4) * 4 + 1
 
 
 def _history_output_files(
@@ -146,6 +171,11 @@ class ComfyUIAdapter(BaseAdapter):
             resolution_warn.append(
                 "Height over 1024 may exceed VRAM for many video workflows."
             )
+        if (job.width and job.width % 16) or (job.height and job.height % 16):
+            resolution_warn.append(
+                "Width and height should be divisible by 16 — Wan 2.2 latent "
+                "nodes reject other sizes."
+            )
         if job.duration_seconds and job.duration_seconds > 10:
             resolution_warn.append(
                 "Longer durations take more VRAM and time."
@@ -242,7 +272,15 @@ class ComfyUIAdapter(BaseAdapter):
         return Path(raw) if raw else None
 
     def _render_workflow(self, template: str, job: Any | None) -> str:
-        """Replace {{TOKENS}} in an exported ComfyUI API workflow."""
+        """Replace {{TOKENS}} in an exported ComfyUI API workflow.
+
+        A token may be written quoted (``"noise_seed": "{{SEED}}"``) or bare
+        (``"noise_seed": {{SEED}}``). The quoted form is preferred because it
+        keeps the workflow file valid JSON on disk; at render time the quotes
+        around a numeric token are dropped so ComfyUI receives a JSON number.
+        Substitution runs in a single pass, so token-looking text inside a
+        prompt is left untouched.
+        """
         prompt = getattr(job, "prompt", "") if job is not None else ""
         negative = getattr(job, "negative_prompt", "") if job is not None else ""
         model_name = getattr(job, "model_name", "") if job is not None else ""
@@ -257,10 +295,20 @@ class ComfyUIAdapter(BaseAdapter):
             "FPS": str(int(getattr(job, "fps", 0) or 24) if job else 24),
             "DURATION": str(float(getattr(job, "duration_seconds", 0) or 2.0) if job else 2.0),
             "SEED": str(int(seed) if seed is not None else 0),
+            "FRAMES": str(_frame_count(job)),
         }
-        for key, value in values.items():
-            template = template.replace("{" + "{" + key + "}" + "}", value)
-        return template
+        def _substitute(match: re.Match[str]) -> str:
+            quoted_key, bare_key = match.group(1), match.group(2)
+            key = quoted_key or bare_key
+            if key not in values:
+                return match.group(0)
+            value = values[key]
+            if quoted_key and key in _STRING_TOKENS:
+                # Keep the JSON string delimiters around the escaped content.
+                return '"' + value + '"'
+            return value
+
+        return _TOKEN_PATTERN.sub(_substitute, template)
 
     def _workflow_config_error(self) -> str | None:
         """Return an actionable error when no usable workflow is configured."""

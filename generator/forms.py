@@ -24,6 +24,25 @@ _FIELD_LABELS = {
     "steps": "Steps",
 }
 
+# Shared widget styling so every control on the dark UI looks the same.
+_SELECT_CLASS = (
+    "w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 "
+    "text-neutral-100 focus:border-purple-500 focus:outline-none"
+)
+
+# The model stores aspect_ratio as free text, so the Select widget would render
+# with no options at all. These are the ratios the presets use plus the usual
+# extras; the blank entry means "use the engine preset".
+ASPECT_RATIO_CHOICES = (
+    ("", "Auto (engine preset)"),
+    ("16:9", "16:9 — landscape"),
+    ("9:16", "9:16 — portrait"),
+    ("1:1", "1:1 — square"),
+    ("4:3", "4:3 — standard"),
+    ("3:4", "3:4 — vertical"),
+    ("21:9", "21:9 — ultrawide"),
+)
+
 
 def _set_field_range(field: forms.Field, minimum: float, maximum: float) -> None:
     """Apply numeric bounds to a form field, preserving its widget."""
@@ -60,6 +79,8 @@ class GenerationJobForm(forms.ModelForm):
         for name, label in _FIELD_LABELS.items():
             if name in self.fields:
                 self.fields[name].label = label
+        if "aspect_ratio" in self.fields:
+            self.fields["aspect_ratio"].widget.choices = ASPECT_RATIO_CHOICES
         _set_field_range(self.fields["duration_seconds"], 0.5, 30)
         _set_field_range(self.fields["width"], 64, 2048)
         _set_field_range(self.fields["height"], 64, 2048)
@@ -115,7 +136,10 @@ class GenerationJobForm(forms.ModelForm):
                 "min": 1, "max": 60,
             }),
             "aspect_ratio": forms.Select(attrs={
-                "class": "w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 focus:border-purple-500 focus:outline-none",
+                "class": _SELECT_CLASS,
+            }),
+            "engine": forms.Select(attrs={
+                "class": _SELECT_CLASS,
             }),
             "seed": forms.NumberInput(attrs={
                 "class": "w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 focus:border-purple-500 focus:outline-none",
@@ -260,6 +284,9 @@ class ImageToVideoForm(forms.ModelForm):
             "fps": forms.NumberInput(attrs={
                 "class": "w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 focus:border-purple-500 focus:outline-none",
                 "min": 1, "max": 60,
+            }),
+            "engine": forms.Select(attrs={
+                "class": _SELECT_CLASS,
             }),
             "seed": forms.NumberInput(attrs={
                 "class": "w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-neutral-100 focus:border-purple-500 focus:outline-none",

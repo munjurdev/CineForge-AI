@@ -303,6 +303,14 @@ GENERATION_JOB_TIMEOUT_SECONDS = config(
 # Film / FFmpeg defaults
 # ---------------------------------------------------------------------------
 FFMPEG_BIN = config("FFMPEG_BIN", default="ffmpeg")
+# A value that contains a path separator is resolved against BASE_DIR so the
+# bundled binary works regardless of the working directory; a bare name like
+# "ffmpeg" keeps searching PATH.
+if "/" in FFMPEG_BIN or "\\" in FFMPEG_BIN:
+    _ffmpeg_path = Path(FFMPEG_BIN)
+    FFMPEG_BIN = str(
+        _ffmpeg_path if _ffmpeg_path.is_absolute() else BASE_DIR / _ffmpeg_path
+    )
 FFMPEG_CONCAT_TRANSCODING = config(
     "FFMPEG_CONCAT_TRANSCODING", default="libx264", cast=str
 )

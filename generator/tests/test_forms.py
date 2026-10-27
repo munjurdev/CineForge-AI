@@ -73,6 +73,46 @@ class GenerationJobFormTests(SimpleTestCase):
         self.assertIn("steps", form.errors)
 
 
+class DropdownRenderingTests(SimpleTestCase):
+    """Every <select> must render real options and the dark-UI styling.
+
+    Regression tests: the engine widget had no classes (unstyled white control)
+    and aspect_ratio is free text on the model, so its Select used to render
+    with zero options.
+    """
+
+    def test_engine_select_is_styled_and_lists_every_adapter(self):
+        for form in (GenerationJobForm(), ImageToVideoForm()):
+            html = str(form["engine"])
+            self.assertIn('class="w-full', html)
+            for label in ("ComfyUI", "Wan (direct)", "LTX-Video (direct)", "Test adapter"):
+                self.assertIn(label, html)
+            self.assertEqual(html.count("<option"), 4)
+
+    def test_aspect_ratio_select_has_options(self):
+        html = str(GenerationJobForm()["aspect_ratio"])
+        self.assertIn('class="w-full', html)
+        self.assertGreaterEqual(html.count("<option"), 7)
+        for label in ("Auto (engine preset)", "16:9", "9:16", "1:1", "21:9"):
+            self.assertIn(label, html)
+
+    def test_aspect_ratio_defaults_to_engine_preset(self):
+        html = str(GenerationJobForm()["aspect_ratio"])
+        self.assertIn('value="" selected', html)
+
+    def test_blank_aspect_ratio_still_validates(self):
+        form = GenerationJobForm({"prompt": "test", "aspect_ratio": ""})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["aspect_ratio"], "")
+
+    def test_custom_aspect_ratio_label_still_accepted(self):
+        # The model stores a free-text label, so an older stored value that is
+        # not in the list must keep validating.
+        form = GenerationJobForm({"prompt": "test", "aspect_ratio": "7:3"})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["aspect_ratio"], "7:3")
+
+
 class ImageToVideoFormTests(SimpleTestCase):
     def test_valid_form(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

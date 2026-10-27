@@ -81,9 +81,16 @@ def detect_system_info() -> dict[str, Any]:
     except Exception:
         result["gpu"] = {"cuda_available": False}
 
-    # Tools
-    ffmpeg = _which("ffmpeg")
-    ffprobe = _which("ffprobe") or _which("ffmpeg")
+    # Tools — honour the configured binary first (FFMPEG_BIN may point at a
+    # bundled build), then fall back to a PATH lookup.
+    configured_ffmpeg = getattr(settings, "FFMPEG_BIN", "ffmpeg")
+    ffmpeg = _which(configured_ffmpeg) or _which("ffmpeg")
+    configured_ffprobe = str(
+        Path(configured_ffmpeg).with_name(
+            Path(configured_ffmpeg).name.replace("ffmpeg", "ffprobe", 1)
+        )
+    )
+    ffprobe = _which(configured_ffprobe) or _which("ffprobe") or ffmpeg
     result["tools"] = {
         "ffmpeg": ffmpeg,
         "ffprobe": ffprobe,
@@ -91,7 +98,9 @@ def detect_system_info() -> dict[str, Any]:
     }
 
     if ffmpeg:
-        result["tools"]["ffmpeg_version"] = _tool_version(ffmpeg, ["--version"])
+        # ffmpeg/ffprobe accept "-version"; "--version" exits non-zero and
+        # would leave this blank.
+        result["tools"]["ffmpeg_version"] = _tool_version(ffmpeg, ["-version"])
     else:
         result["warnings"].append("FFmpeg is not installed or not on PATH.")
 

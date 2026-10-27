@@ -72,7 +72,23 @@ Local generation does not require a paid API key. Hardware, electricity, storage
 
 ### Configuring ComfyUI
 
-The `comfyui` adapter does **not** ship a built-in model workflow. It submits whatever workflow you export from your own ComfyUI installation, so real video generation needs a video model installed there (for example Wan or LTX-Video).
+The adapter submits whatever API workflow you point it at. A ready-made **Wan 2.2 text-to-video** workflow ships in `comfyui/workflows/wan22_t2v_api.json`, but it only runs if those exact model files are installed in your ComfyUI instance:
+
+- `diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors`
+- `diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors`
+- `text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors`
+- `vae/wan_2.1_vae.safetensors`
+- `loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors`
+- `loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors`
+
+The last two are the lightx2v 4-step distillation LoRAs, which is how the
+shipped workflow renders quickly: 4 sampling steps total (2 per noise expert)
+at CFG 1.0 instead of 20 steps at CFG 3.5. Without those two files ComfyUI
+rejects the job with a `lora not found` node error — install them from
+ComfyUI Manager, or remove the two `LoraLoaderModelOnly` nodes (see
+`comfyui/workflows/README.md`) to fall back to the 20-step path.
+
+If your ComfyUI uses different models, export your own workflow instead:
 
 1. Start ComfyUI and build a working text-to-video (or image-to-video) workflow with the model installed on your machine.
 2. In ComfyUI use **Save (API Format)** to export the workflow JSON.
@@ -83,12 +99,14 @@ The `comfyui` adapter does **not** ship a built-in model workflow. It submits wh
    | `{{PROMPT}}` | Job prompt (JSON-escaped automatically) |
    | `{{NEGATIVE_PROMPT}}` | Negative prompt |
    | `{{WIDTH}}`, `{{HEIGHT}}` | Requested resolution (integers) |
-   | `{{FPS}}`, `{{DURATION}}` | Frame rate and duration |
+   | `{{FPS}}` | Frame rate (integer) |
+   | `{{FRAMES}}` | Frame count derived from duration × FPS, rounded up to 4n+1 |
+   | `{{DURATION}}` | Duration in seconds (only where the workflow expects seconds) |
    | `{{SEED}}` | Requested seed (0 when unset) |
    | `{{MODEL_NAME}}` | Optional model label |
 
-   Tokens are substituted as JSON values, so a prompt containing quotes or newlines stays valid.
-4. Set `COMFYUI_WORKFLOW_PATH=comfyui/wan_t2v_api.json` (relative paths resolve against the project root) and `INFERENCE_DEFAULT_ADAPTER=comfyui`.
+   Tokens are substituted as JSON values, so a prompt containing quotes or newlines stays valid. Keep the surrounding quotes on **every** token — that way the workflow file itself stays valid JSON. Quotes around a numeric token are stripped at render time (`"length": "{{FRAMES}}"` → `"length": 49`), so ComfyUI still receives a JSON number; the bare form (`"length": {{FRAMES}}`) also works.
+4. Set `COMFYUI_WORKFLOW_PATH=comfyui/workflows/wan22_t2v_api.json` (relative paths resolve against the project root) and `INFERENCE_DEFAULT_ADAPTER=comfyui`.
 5. Restart the server. The diagnostics/settings pages show whether a workflow is configured.
 
 If no workflow is configured, the adapter rejects the job with an actionable message instead of submitting a placeholder graph that could never produce a video.
@@ -100,6 +118,13 @@ python manage.py comfyui_check
 ```
 
 A full cloud-GPU walkthrough (RunPod + Wan 2.2, no local GPU required) is in [docs/cloud-gpu-comfyui.md](docs/cloud-gpu-comfyui.md).
+
+**No GPU and no budget?** A free walkthrough using Google Colab's free T4 GPU
+(Wan 2.2 **5B**, cloudflared tunnel, $0) is in
+[docs/colab-free-gpu.md](docs/colab-free-gpu.md), with the notebook at
+`tools/colab/comfyui_free_gpu.ipynb`. It uses the second shipped workflow,
+`comfyui/workflows/wan22_5b_t2v_api.json`, which needs the 5B model set instead
+of the 14B one.
 
 The adapter layer lives in `generator/adapters.py` with concrete implementations in:
 
