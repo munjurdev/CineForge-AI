@@ -4,14 +4,19 @@
 
 {% block content %}
 <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
-  <header class="mb-8">
-    <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">Text to Video</h1>
-    <p class="mt-1 text-sm text-neutral-400">
-      Describe a scene and generate a cinematic video with your installed local model.
-    </p>
-    <p class="mt-1 text-sm text-neutral-500">
-      Generations run locally and depend on your GPU, VRAM, and model setup.
-    </p>
+  <header class="relative mb-8 overflow-hidden rounded-2xl border border-purple-900/50 bg-gradient-to-br from-purple-950/70 via-neutral-900 to-neutral-950 p-6 shadow-xl sm:p-8">
+    <div class="relative z-10 max-w-2xl">
+      <p class="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">CineForge Studio</p>
+      <h1 class="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Turn a prompt into a film</h1>
+      <p class="mt-3 text-sm leading-6 text-neutral-300">
+        Describe the shot, choose your format, and let your connected ComfyUI model create it.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-2 text-xs text-neutral-300">
+        <span class="rounded-full border border-purple-700/60 bg-purple-950/50 px-3 py-1.5">Text to video</span>
+        <span class="rounded-full border border-neutral-700 bg-neutral-900/60 px-3 py-1.5">Live generation status</span>
+        <span class="rounded-full border border-neutral-700 bg-neutral-900/60 px-3 py-1.5">MP4 output</span>
+      </div>
+    </div>
   </header>
 
   {% if form.non_field_errors %}
@@ -20,7 +25,7 @@
     </div>
   {% endif %}
 
-  <form method="post" class="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 shadow sm:p-6">
+  <form method="post" data-generation-form class="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-lg sm:p-7">
     {% csrf_token %}
 
     {% if form.errors %}
@@ -30,14 +35,20 @@
     {% endif %}
 
     <div class="space-y-5">
-      {% include "partials/form_field.html" with field=form.prompt %}
+      <div class="rounded-xl border border-neutral-800 bg-neutral-950/40 p-4 sm:p-5">
+        <div class="mb-3">
+          <h2 class="text-sm font-semibold text-neutral-100">Describe your scene</h2>
+          <p class="mt-1 text-xs leading-5 text-neutral-500">Mention the subject, movement, setting, lighting, and camera style. One clear continuous shot usually works best.</p>
+        </div>
+        {% include "partials/form_field.html" with field=form.prompt %}
+      </div>
       {% include "partials/prompt_assistant.html" with textarea_id=form.prompt.id_for_label %}
       {% include "partials/form_field.html" with field=form.negative_prompt %}
 
       <fieldset class="rounded-xl border border-neutral-800 bg-neutral-950/30 p-4">
         <legend class="px-2 text-sm font-semibold text-neutral-200">Generation settings</legend>
         <p class="mb-4 mt-1 text-xs text-neutral-500">
-          Leave any setting blank to use the selected engine's preset.
+          For the Colab Wan 2.2 5B workflow, use 832 × 480 and keep both dimensions divisible by 16.
         </p>
 
         <div class="grid gap-4 sm:grid-cols-2">
@@ -95,9 +106,13 @@
              class="rounded-md border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-700">
             Cancel
           </a>
-          <button type="submit"
-                  class="rounded-md bg-purple-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-purple-500">
-            Generate
+          <button type="submit" data-generate-button
+                  class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-950/40 transition hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-neutral-950 disabled:cursor-wait disabled:opacity-70">
+            <svg data-generate-spinner class="hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span data-generate-label>Generate video</span>
           </button>
         </div>
       </div>
@@ -115,6 +130,16 @@
       textarea.focus();
     });
   });
+
+  const form = document.querySelector('[data-generation-form]');
+  const submitButton = document.querySelector('[data-generate-button]');
+  if (form && submitButton) {
+    form.addEventListener('submit', function () {
+      submitButton.disabled = true;
+      document.querySelector('[data-generate-spinner]').classList.remove('hidden');
+      document.querySelector('[data-generate-label]').textContent = 'Starting generation…';
+    });
+  }
 })();
 </script>
 {% endblock %}

@@ -15,6 +15,7 @@ urlpatterns = [
     path("generate/", views.generate_video, name="generate_video"),
     path("prompt-assistant/", views.enhance_prompt, name="enhance_prompt"),
     path("image-to-video/", views.generate_image_to_video, name="image_to_video"),
+    path("jobs/<uuid:pk>/status/", views.job_status, name="job_status"),
     path("jobs/<uuid:pk>/", views.job_detail, name="job_detail"),
     path("jobs/<uuid:pk>/cancel/", views.cancel_job, name="job_cancel"),
     path("jobs/<uuid:pk>/retry/", views.retry_job, name="job_retry"),

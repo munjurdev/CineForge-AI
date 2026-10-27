@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import logging
 import shutil
+import threading
+import uuid
 from pathlib import Path
 from typing import Any
 
 from django.conf import settings
+from django.db import close_old_connections
 
 from .models import GenerationJob
 
@@ -233,7 +236,22 @@ def validate_and_normalize_job_from_form(
 # Queueing / cancellation
 # ---------------------------------------------------------------------------
 
-def queue_generation_job(job: GenerationJob) -> tuple[bool, str | None]:
+def _run_eager_task_in_background(job_id: str, task_id: str) -> None:
+    """Run eager Celery tasks off the request thread for the local web UI."""
+    from .tasks import run_generation_task
+
+    close_old_connections()
+    try:
+        run_generation_task.apply(args=(job_id,), task_id=task_id)
+    finally:
+        close_old_connections()
+
+
+def queue_generation_job(
+    job: GenerationJob,
+    *,
+    background: bool = False,
+) -> tuple[bool, str | None]:
     """Queue the job for generation and return (queued, message)."""
     from .tasks import run_generation_task
 
@@ -250,6 +268,31 @@ def queue_generation_job(job: GenerationJob) -> tuple[bool, str | None]:
         return False, "Job is already running."
 
     try:
+        if background and getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+            task_id = str(uuid.uuid4())
+            job.task_id = task_id
+            job.status = GenerationJob.Status.RUNNING
+            job.progress = 0.0
+            job.message = "Starting generation in the background…"
+            job.save(
+                update_fields=[
+                    "task_id",
+                    "status",
+                    "progress",
+                    "message",
+                    "updated",
+                ]
+            )
+            worker = threading.Thread(
+                target=_run_eager_task_in_background,
+                args=(str(job.id), task_id),
+                name=f"generation-{job.id.hex[:8]}",
+                daemon=True,
+            )
+            worker.start()
+            logger.info("Started background generation job %s", job.id)
+            return True, "Generation started. This page will show live progress."
+
         result = run_generation_task.delay(job_id=str(job.id))
         job.task_id = result.id
 

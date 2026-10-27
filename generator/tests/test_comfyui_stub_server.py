@@ -16,6 +16,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import mock
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -111,6 +112,16 @@ class ComfyUIStubServerTests(TestCase):
             / "wan22_t2v_api.json"
         )
 
+    @staticmethod
+    def _connected_progress_listener(
+        base_url,
+        client_id,
+        job_id,
+        stop,
+        connected,
+    ):
+        connected.set()
+
     def test_validate_reaches_server(self) -> None:
         job = GenerationJob(prompt="a cinematic shot")
         with self.settings(
@@ -121,7 +132,14 @@ class ComfyUIStubServerTests(TestCase):
         self.assertTrue(ok, message)
         self.assertEqual(warnings, [])
 
-    def test_generate_submits_workflow_and_collects_output(self) -> None:
+    @mock.patch(
+        "generator.adapters_comfyui._listen_for_progress",
+        side_effect=_connected_progress_listener,
+    )
+    def test_generate_submits_workflow_and_collects_output(
+        self,
+        progress_listener,
+    ) -> None:
         job = GenerationJob(
             prompt='a "stormy" sea: 50% rain',
             negative_prompt="blurry, text",

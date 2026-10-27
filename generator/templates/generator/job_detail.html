@@ -3,15 +3,21 @@
 {% block title %}Job {{ job.id.hex|truncatechars:8 }} — {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
-  <header class="mb-8 flex items-start justify-between gap-4">
+<div class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
+  <header class="mb-8 flex flex-col gap-5 rounded-2xl border border-purple-900/50 bg-gradient-to-br from-purple-950/70 via-neutral-900 to-neutral-950 p-6 shadow-xl sm:flex-row sm:items-center sm:justify-between sm:p-8">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">Generation job</h1>
-      <p class="mt-1 text-neutral-400">
+      <p class="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-purple-300">CineForge Studio</p>
+      <h1 class="text-2xl font-semibold tracking-tight text-neutral-100 sm:text-3xl">
+        {% if job.status == 'SUCCESS' %}Your video is ready
+        {% elif job.status == 'FAILED' %}Generation needs attention
+        {% elif job.status == 'CANCELLED' %}Generation cancelled
+        {% else %}Your video is being forged{% endif %}
+      </h1>
+      <p class="mt-2 text-sm text-neutral-400">
         Job ID: <span class="font-mono break-all text-purple-300">{{ job.id }}</span>
       </p>
     </div>
-    <span class="shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-sm font-semibold uppercase
+    <span id="job-status-badge" class="inline-flex shrink-0 items-center gap-2 self-start whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold uppercase tracking-wide
       {% if job.status == 'SUCCESS' %}bg-green-900/50 text-green-200
       {% elif job.status == 'FAILED' %}bg-red-900/50 text-red-200
       {% elif job.status == 'RUNNING' %}bg-amber-900/50 text-amber-200
@@ -19,11 +25,51 @@
       {% elif job.status == 'CANCELLED' %}bg-neutral-700 text-neutral-400
       {% elif job.status == 'DEFERRED' %}bg-neutral-700 text-neutral-400
       {% endif %}">
-      {{ job.get_status_display }}
+      {% if job.status == 'RUNNING' or job.status == 'PENDING' %}
+        <span class="h-2 w-2 animate-pulse rounded-full bg-amber-300"></span>
+      {% endif %}
+      <span id="job-status-text">{{ job.get_status_display }}</span>
     </span>
   </header>
 
-  <div class="rounded-xl border border-neutral-700 bg-neutral-900/60 p-6 shadow">
+  {% if job.status == 'RUNNING' or job.status == 'PENDING' %}
+    <section id="live-progress"
+             data-status-url="{% url 'generator:job_status' pk=job.pk %}"
+             class="mb-6 rounded-2xl border border-purple-800/60 bg-neutral-900/80 p-6 shadow-lg sm:p-8"
+             aria-live="polite">
+      <div class="mb-5 flex items-start gap-4">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-900/50 text-purple-200">
+          <svg class="h-6 w-6 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2M5.636 5.636l1.414 1.414m9.9 9.9 1.414 1.414M3 12h2m14 0h2M5.636 18.364l1.414-1.414m9.9-9.9 1.414-1.414M9 9l6 6m0-6-6 6" />
+          </svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h2 class="text-lg font-semibold text-neutral-100">Creating your video</h2>
+          <p id="live-progress-message" class="mt-1 break-words text-sm text-neutral-300">
+            {{ job.message|default:"Starting generation…" }}
+          </p>
+        </div>
+        <span id="live-progress-percent" class="shrink-0 text-lg font-semibold tabular-nums text-purple-200">
+          {% if progress_known %}{{ progress_percent }}%{% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="h-3 overflow-hidden rounded-full bg-neutral-800"
+           role="progressbar"
+           aria-label="ComfyUI sampling progress"
+           aria-valuemin="0"
+           aria-valuemax="100"
+           {% if progress_known %}aria-valuenow="{{ progress_percent }}"{% endif %}>
+        <div id="live-progress-bar"
+             class="h-full rounded-full bg-gradient-to-r from-purple-600 via-fuchsia-500 to-purple-300 transition-all duration-500 {% if not progress_known %}animate-pulse{% endif %}"
+             style="width: {% if progress_known %}{{ progress_percent }}{% else %}28{% endif %}%"></div>
+      </div>
+      <p id="live-progress-caption" class="mt-3 text-xs text-neutral-500">
+        {% if progress_known %}Live sampler-step progress from ComfyUI.{% else %}Preparing the model. The real sampler percentage appears when inference starts.{% endif %}
+      </p>
+    </section>
+  {% endif %}
+
+  <div class="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow-lg sm:p-7">
     <section class="mb-6">
       <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">Status</h2>
       <dl class="grid gap-2 sm:grid-cols-2">
@@ -36,10 +82,12 @@
           <dd class="text-neutral-200">{{ job.updated|date:"c" }}</dd>
         </div>
         <div class="rounded-lg border border-neutral-700 bg-neutral-800/40 p-3">
-          <dt class="text-xs text-neutral-500">Progress</dt>
-          <dd class="text-neutral-200">{{ progress_percent }}%</dd>
+          <dt class="text-xs text-neutral-500">Sampler progress</dt>
+          <dd id="progress-value" class="text-neutral-200">
+            {% if progress_known %}{{ progress_percent }}%{% else %}Waiting for sampler steps{% endif %}
+          </dd>
           <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-700">
-            <div class="h-full rounded-full bg-purple-500 transition-all" style="width: {{ progress_percent }}%"></div>
+            <div id="progress-bar" class="h-full rounded-full bg-purple-500 transition-all" style="width: {% if progress_known %}{{ progress_percent }}{% else %}0{% endif %}%"></div>
           </div>
         </div>
         {% if job.task_id %}
@@ -52,9 +100,9 @@
     </section>
 
     {% if job.message %}
-      <section class="mb-6 rounded-lg border border-neutral-700 bg-neutral-800/40 p-4">
+      <section id="job-message-panel" class="mb-6 rounded-lg border border-neutral-700 bg-neutral-800/40 p-4">
         <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-400">Message</h2>
-        <pre class="whitespace-pre-wrap text-neutral-200">{{ job.message }}</pre>
+        <pre id="job-message" class="whitespace-pre-wrap text-sm text-neutral-200">{{ job.message }}</pre>
       </section>
     {% endif %}
 
@@ -203,7 +251,62 @@
 {% block extra_js %}
   {% if job.status == 'PENDING' or job.status == 'RUNNING' %}
     <script>
-      setTimeout(function () { window.location.reload(); }, 5000);
+      (function () {
+        const panel = document.getElementById('live-progress');
+        if (!panel) return;
+        const statusUrl = panel.dataset.statusUrl;
+        let terminalReloadStarted = false;
+
+        async function refreshProgress() {
+          try {
+            const response = await fetch(statusUrl, {
+              headers: { 'Accept': 'application/json' },
+              cache: 'no-store'
+            });
+            if (!response.ok) throw new Error('Status request failed');
+            const state = await response.json();
+            const percent = Math.max(0, Math.min(100, Number(state.progress_percent) || 0));
+            const known = Boolean(state.progress_known);
+            const message = state.message || state.status_display;
+            const bar = document.getElementById('live-progress-bar');
+            const value = document.getElementById('live-progress-percent');
+            const caption = document.getElementById('live-progress-caption');
+            const progressRole = panel.querySelector('[role="progressbar"]');
+
+            document.getElementById('live-progress-message').textContent = message;
+            document.getElementById('job-message').textContent = message;
+            document.getElementById('progress-value').textContent = known
+              ? percent + '%'
+              : 'Waiting for sampler steps';
+            document.getElementById('progress-bar').style.width = (known ? percent : 0) + '%';
+            value.textContent = known ? percent + '%' : '—';
+            bar.style.width = (known ? percent : 28) + '%';
+            bar.classList.toggle('animate-pulse', !known);
+            caption.textContent = known
+              ? 'Live sampler-step progress from ComfyUI.'
+              : 'Preparing the model. The real sampler percentage appears when inference starts.';
+            if (known) {
+              progressRole.setAttribute('aria-valuenow', String(percent));
+            } else {
+              progressRole.removeAttribute('aria-valuenow');
+            }
+
+            const badge = document.getElementById('job-status-badge');
+            document.getElementById('job-status-text').textContent = state.status_display;
+            if (state.status !== 'PENDING' && state.status !== 'RUNNING' && !terminalReloadStarted) {
+              terminalReloadStarted = true;
+              window.location.reload();
+              return;
+            }
+          } catch (error) {
+            document.getElementById('live-progress-message').textContent =
+              'Connection interrupted. Reconnecting to the live job status…';
+          }
+          window.setTimeout(refreshProgress, 2000);
+        }
+
+        window.setTimeout(refreshProgress, 1500);
+      })();
     </script>
   {% endif %}
 {% endblock %}

@@ -28,7 +28,7 @@ CineForge AI uses a modular architecture so the AI engine can be replaced withou
 - **AI inference:** ComfyUI API or a compatible local inference backend, accessed through a modular adapter layer
 - **Background jobs:** Celery + Redis (with graceful degradation to in-process execution for development)
 - **Video processing:** FFmpeg / ffprobe
-- **Real-time progress:** polling initially, with optional Django Channels / WebSockets in the future
+- **Real-time progress:** ComfyUI sampler-step events over WebSocket, displayed through a lightweight job-status poll
 - **Storage:** local filesystem
 - **Configuration:** environment variables and a documented `.env.example`
 
@@ -176,7 +176,7 @@ If you have Celery and Redis available, you can also start a worker:
 celery -A cineforge worker --loglevel=info
 ```
 
-For development without Redis, set `CELERY_TASK_ALWAYS_EAGER=True` in `.env` so tasks run synchronously in-process.
+For development without Redis, set `CELERY_TASK_ALWAYS_EAGER=True` in `.env`. Web submissions run in a background thread so the browser reaches the job page immediately; ComfyUI sampler steps are streamed to the page when the backend supports WebSockets. The development server must stay running while generation is active. For durable workers, configure Redis, set eager mode to `False`, and run the Celery worker above.
 
 ## Configuration
 

@@ -44,7 +44,7 @@ def generate_video(request):
             for warning in getattr(job, "_warnings", []):
                 messages.warning(request, warning)
 
-            queued, reason = queue_generation_job(job)
+            queued, reason = queue_generation_job(job, background=True)
             if queued:
                 messages.success(request, reason or "Generation queued.")
                 return redirect("generator:job_detail", pk=job.pk)
@@ -81,7 +81,7 @@ def generate_image_to_video(request):
             for warning in getattr(job, "_warnings", []):
                 messages.warning(request, warning)
 
-            queued, reason = queue_generation_job(job)
+            queued, reason = queue_generation_job(job, background=True)
             if queued:
                 messages.success(request, reason or "Image-to-video queued.")
                 return redirect("generator:job_detail", pk=job.pk)
@@ -104,11 +104,32 @@ def generate_image_to_video(request):
 def job_detail(request, pk):
     """Show a job's current status and available actions."""
     job = get_object_or_404(GenerationJob, pk=pk)
+    progress_known = (
+        job.status == GenerationJob.Status.SUCCESS
+        or job.message.startswith("Sampling step ")
+    )
     return render(request, "generator/job_detail.html", {
         "page": "job_detail",
         "job": job,
         "is_error_actionable": error_is_user_actionable(job),
         "progress_percent": round((job.progress or 0.0) * 100),
+        "progress_known": progress_known,
+    })
+
+
+def job_status(request, pk):
+    """Return the latest generation state for the live progress page."""
+    job = get_object_or_404(GenerationJob, pk=pk)
+    progress_known = (
+        job.status == GenerationJob.Status.SUCCESS
+        or job.message.startswith("Sampling step ")
+    )
+    return JsonResponse({
+        "status": job.status,
+        "status_display": job.get_status_display(),
+        "message": job.message,
+        "progress_percent": round((job.progress or 0.0) * 100),
+        "progress_known": progress_known,
     })
 
 

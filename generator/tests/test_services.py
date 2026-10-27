@@ -160,6 +160,24 @@ class JobLifecycleTests(TestCase):
 
 
 class QueueGenerationTests(TestCase):
+    @mock.patch("generator.services.threading.Thread")
+    def test_eager_view_job_runs_in_background(self, thread_class):
+        thread = thread_class.return_value
+        job = GenerationJob.objects.create(
+            prompt="test",
+            engine=GenerationJob.Engine.TEST,
+        )
+
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            queued, message = queue_generation_job(job, background=True)
+
+        self.assertTrue(queued)
+        self.assertIn("live progress", message)
+        job.refresh_from_db()
+        self.assertEqual(job.status, GenerationJob.Status.RUNNING)
+        self.assertTrue(job.task_id)
+        thread.start.assert_called_once()
+
     @mock.patch("generator.tasks.run_generation_task.delay")
     def test_eager_terminal_status_is_not_overwritten(self, delay):
         job = GenerationJob.objects.create(

@@ -22,9 +22,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
@@ -95,6 +97,81 @@ def _history_output_files(
                         (item["filename"], item.get("subfolder") or "output")
                     )
     return files
+
+
+def _comfyui_websocket_url(base_url: str, client_id: str) -> str:
+    """Build the ComfyUI websocket URL for this generation client."""
+    parsed = urlsplit(base_url)
+    scheme = {"http": "ws", "https": "wss"}.get(parsed.scheme, parsed.scheme)
+    query = dict(parse_qsl(parsed.query))
+    query["clientId"] = client_id
+    return urlunsplit(
+        (scheme, parsed.netloc, parsed.path.rstrip("/") + "/ws", urlencode(query), "")
+    )
+
+
+def _listen_for_progress(
+    base_url: str,
+    client_id: str,
+    job_id: Any,
+    stop: threading.Event,
+    connected: threading.Event,
+) -> None:
+    """Store real ComfyUI sampler-step events while generation is running."""
+    try:
+        import websocket
+
+        connection = websocket.create_connection(
+            _comfyui_websocket_url(base_url, client_id),
+            timeout=10,
+        )
+    except Exception as exc:  # Network/tunnel may not support WebSockets.
+        logger.warning("Could not open ComfyUI progress stream: %s", exc)
+        connected.set()
+        return
+
+    connected.set()
+    try:
+        while not stop.is_set():
+            try:
+                raw_message = connection.recv()
+            except websocket.WebSocketTimeoutException:
+                continue
+            except websocket.WebSocketConnectionClosedException:
+                break
+
+            try:
+                event = json.loads(raw_message)
+            except (TypeError, ValueError):
+                continue
+            if event.get("type") != "progress":
+                continue
+
+            data = event.get("data") or {}
+            try:
+                value = float(data["value"])
+                maximum = float(data["max"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if maximum <= 0:
+                continue
+
+            percent = max(0, min(100, round(value / maximum * 100)))
+            message = f"Sampling step {value:g} of {maximum:g} ({percent}%)."
+            from django.utils import timezone
+
+            GenerationJob.objects.filter(
+                pk=job_id,
+                status=GenerationJob.Status.RUNNING,
+            ).update(
+                progress=max(0.0, min(1.0, value / maximum)),
+                message=message,
+                updated=timezone.now(),
+            )
+    except Exception:
+        logger.exception("ComfyUI progress stream failed for job %s", job_id)
+    finally:
+        connection.close()
 
 
 class ComfyUIAdapter(BaseAdapter):
@@ -190,6 +267,9 @@ class ComfyUIAdapter(BaseAdapter):
         temp_base = getattr(settings, "MEDIA_TEMP_DIR", Path("media/temp"))
 
         client = httpx.Client(timeout=timeout)
+        progress_stop = threading.Event()
+        progress_connected = threading.Event()
+        progress_thread: threading.Thread | None = None
 
         try:
             # Build workflow from the configured exported API workflow
@@ -197,12 +277,36 @@ class ComfyUIAdapter(BaseAdapter):
             if workflow is None:
                 return None
 
+            from .services import job_set_progress
+
+            job_set_progress(job, 0.0, "Connecting to ComfyUI and preparing the workflow…")
+            client_id = str(job.id)
+            progress_thread = threading.Thread(
+                target=_listen_for_progress,
+                args=(
+                    base_url,
+                    client_id,
+                    job.pk,
+                    progress_stop,
+                    progress_connected,
+                ),
+                name=f"comfyui-progress-{job.id.hex[:8]}",
+                daemon=True,
+            )
+            progress_thread.start()
+            if not progress_connected.wait(timeout=11):
+                logger.warning(
+                    "Timed out waiting for ComfyUI progress stream for job %s; "
+                    "continuing without live sampler percentage.",
+                    job.id,
+                )
+
             # Queue the prompt
             resp = client.post(
                 f"{base_url}/prompt",
                 json={
                     "prompt": workflow,
-                    "client_id": str(job.id),
+                    "client_id": client_id,
                 },
             )
             if resp.status_code not in (200, 201):
@@ -258,6 +362,9 @@ class ComfyUIAdapter(BaseAdapter):
             logger.error("ComfyUI generation failed for job %s: %s", job.id, exc)
             return None
         finally:
+            progress_stop.set()
+            if progress_thread is not None:
+                progress_thread.join(timeout=2)
             try:
                 client.close()
             except Exception:  # pragma: no cover
@@ -362,7 +469,6 @@ class ComfyUIAdapter(BaseAdapter):
         """Poll ComfyUI until the output appears or the job is cancelled."""
         deadline = time.monotonic() + float(getattr(settings, "COMFYUI_API_TIMEOUT", 600))
         poll_interval = 2.0
-        attempts = 0
         last_status = ""
 
         while time.monotonic() < deadline:
@@ -397,16 +503,16 @@ class ComfyUIAdapter(BaseAdapter):
             except Exception:  # pragma: no cover
                 pass
 
-            progress = min(0.95, 0.3 + (attempts * 0.05))
-            from .services import job_set_progress
+            if last_status:
+                from django.utils import timezone
 
-            job_set_progress(
-                job,
-                progress,
-                f"Waiting for ComfyUI: {last_status or 'processing…'}",
-            )
-
-            attempts += 1
+                GenerationJob.objects.filter(
+                    pk=job.pk,
+                    status=GenerationJob.Status.RUNNING,
+                ).exclude(message__startswith="Sampling step ").update(
+                    message=f"ComfyUI is processing the workflow ({last_status}).",
+                    updated=timezone.now(),
+                )
             time.sleep(poll_interval)
 
             # Check for cancellation using a fresh read, since the job row is
