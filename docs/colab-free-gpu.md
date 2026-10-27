@@ -51,7 +51,7 @@ COMFYUI_API_TIMEOUT=1800
 GENERATION_JOB_TIMEOUT_SECONDS=1800
 ```
 
-Then validate:
+Then validate. CineForge checks ComfyUI's `/system_stats` API route:
 
 ```powershell
 python manage.py comfyui_check

@@ -109,7 +109,7 @@ def detect_system_info() -> dict[str, Any]:
         import httpx
         base = getattr(settings, "COMFYUI_BASE_URL", "http://127.0.0.1:8188")
         with httpx.Client(timeout=5.0) as client:
-            resp = client.get(f"{base}/version")
+            resp = client.get(f"{base}/system_stats")
             result["tools"]["comfyui_running"] = resp.status_code == 200
     except Exception:
         result["tools"]["comfyui_running"] = False

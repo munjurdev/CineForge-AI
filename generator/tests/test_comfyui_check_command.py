@@ -75,7 +75,7 @@ class ComfyUICheckCommandTests(TestCase):
                         call_command("comfyui_check", stdout=StringIO())
         self.assertIn("502", str(ctx.exception))
 
-    def test_success_reports_workflow_and_version(self):
+    def test_success_reports_workflow_and_system_stats(self):
         out = StringIO()
         with TemporaryDirectory() as tmp:
             path = self._workflow_path(tmp)
@@ -85,11 +85,14 @@ class ComfyUICheckCommandTests(TestCase):
             ):
                 with mock.patch(
                     "generator.management.commands.comfyui_check.httpx.Client",
-                    return_value=_client(status=200, text="0.3.40"),
+                    return_value=_client(
+                        status=200,
+                        text='{"system": {}, "devices": []}',
+                    ),
                 ):
                     call_command("comfyui_check", stdout=out)
 
         output = out.getvalue()
         self.assertIn("Workflow OK", output)
         self.assertIn("ComfyUI reachable", output)
-        self.assertIn("0.3.40", output)
+        self.assertIn("/system_stats returned HTTP 200", output)

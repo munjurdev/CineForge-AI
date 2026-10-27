@@ -133,7 +133,7 @@ class ComfyUIAdapter(BaseAdapter):
 
         try:
             with httpx.Client(timeout=timeout) as client:
-                resp = client.get(f"{base_url}/version", timeout=10.0)
+                resp = client.get(f"{base_url}/system_stats", timeout=10.0)
                 if resp.status_code != 200:
                     return (
                         False,

@@ -29,7 +29,7 @@ FAKE_MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 4096
 
 
 class _StubComfyUIHandler(BaseHTTPRequestHandler):
-    """Minimal ComfyUI API: /version, /prompt, /history, /view, /status."""
+    """Minimal ComfyUI API: /system_stats, /prompt, /history, /view, /status."""
 
     def log_message(self, *args):  # noqa: D102 - silence request logging
         pass
@@ -43,8 +43,8 @@ class _StubComfyUIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
         parsed = urlparse(self.path)
-        if parsed.path == "/version":
-            self._send(200, json.dumps({"version": "stub"}).encode())
+        if parsed.path == "/system_stats":
+            self._send(200, json.dumps({"system": {}, "devices": []}).encode())
         elif parsed.path == "/status":
             self._send(200, b"{}")
         elif parsed.path.startswith("/history/"):

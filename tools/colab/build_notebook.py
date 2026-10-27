@@ -173,9 +173,11 @@ subprocess.Popen(
     stdout=open("/content/comfyui.log", "a"),
     stderr=subprocess.STDOUT,
 )
+tunnel_log = pathlib.Path("/content/tunnel.log")
+tunnel_log.write_text("")
 subprocess.Popen(
     ["cloudflared", "tunnel", "--url", "http://127.0.0.1:8188"],
-    stdout=open("/content/tunnel.log", "a"),
+    stdout=tunnel_log.open("a"),
     stderr=subprocess.STDOUT,
 )
 
@@ -197,7 +199,7 @@ def wait_for(url, tries=300, label="ComfyUI"):
     return False
 
 
-started = wait_for("http://127.0.0.1:8188/version")
+started = wait_for("http://127.0.0.1:8188/system_stats")
 if not started:
     print("\\nComfyUI did NOT answer within 5 minutes. It may still be starting,")
     print("or it crashed — check the log below, then re-run this cell.")
@@ -216,6 +218,11 @@ for _ in range(90):
 print("=" * 68)
 print("Public ComfyUI URL:", public)
 print("=" * 68)
+if public:
+    tunnel_ready = wait_for(f"{public}/system_stats", tries=60, label="Public tunnel")
+    if not tunnel_ready:
+        print("The tunnel URL is not returning ComfyUI yet. Check /content/tunnel.log:")
+        print(tunnel_log.read_text(errors="ignore")[-2000:])
 print("Paste into CineForge .env, then restart the CineForge server:")
 print(f"  COMFYUI_BASE_URL={public}")
 print("  COMFYUI_WORKFLOW_PATH=comfyui/workflows/wan22_5b_t2v_api.json")

@@ -33,7 +33,7 @@ class Command(BaseCommand):
         ).rstrip("/")
         try:
             with httpx.Client(timeout=10.0) as client:
-                response = client.get(f"{base_url}/version")
+                response = client.get(f"{base_url}/system_stats")
         except httpx.HTTPError as exc:
             raise CommandError(
                 f"Cannot reach ComfyUI at {base_url}: {exc}"
@@ -45,10 +45,9 @@ class Command(BaseCommand):
                 "Expose port 8188 and check the URL."
             )
 
-        version = (response.text or "").strip() or "unknown"
         self.stdout.write(
             self.style.SUCCESS(
-                f"ComfyUI reachable at {base_url} (version: {version})."
+                f"ComfyUI reachable at {base_url} (/system_stats returned HTTP 200)."
             )
         )
         self.stdout.write("Submit a short test prompt from the generation page.")
