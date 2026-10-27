@@ -37,9 +37,6 @@ db.sqlite3-journal
 # Local uploads, generated videos, and temp files
 /media/*
 !/media/.gitkeep
-!/media/uploads/
-!/media/temp/
-!/media/outputs/
 
 # Runtime logs
 /logs/*
