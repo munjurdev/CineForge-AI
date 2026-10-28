@@ -4,6 +4,7 @@ Pillow>=10.0
 celery>=5.3
 django-celery-results>=2.5
 httpx>=0.25
+edge-tts>=6.1
 websocket-client>=1.8
 psutil>=5.9
 redis>=5.0

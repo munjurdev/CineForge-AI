@@ -80,7 +80,7 @@ class GenerationJob(models.Model):
 
     # Generation parameters
     duration_seconds = models.FloatField(
-        default=2.0,
+        default=5.0,
         help_text="Requested video duration in seconds.",
     )
     width = models.PositiveIntegerField(

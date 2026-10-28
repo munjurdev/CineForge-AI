@@ -76,6 +76,9 @@ class CeleryTaskTests(TestCase):
                 MEDIA_ROOT=tmp_path,
                 MEDIA_OUTPUTS_DIR=tmp_path / "outputs",
                 MEDIA_TEMP_DIR=tmp_path / "temp",
+                # The voiceover step talks to edge-tts over the network; it has
+                # its own tests, so keep this wiring test offline.
+                VOICEOVER_ENABLED=False,
             ):
                 result = run_generation_task(str(job.pk))
 
@@ -84,6 +87,37 @@ class CeleryTaskTests(TestCase):
         self.assertEqual(job.status, GenerationJob.Status.SUCCESS)
         self.assertTrue(job.output_file)
         self.assertTrue(GeneratedVideo.objects.filter(job=job).exists())
+
+    @mock.patch("generator.tasks.add_voiceover_to_video")
+    @mock.patch("generator.tasks.get_adapter")
+    def test_run_generation_task_adds_voiceover(self, get_adapter, add_voiceover):
+        job = GenerationJob.objects.create(prompt="a cat walking", engine="TEST")
+
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            source = tmp_path / "out.mp4"
+            source.write_bytes(b"fake video")
+            voiced = tmp_path / "out_voiced.mp4"
+            voiced.write_bytes(b"fake voiced video")
+            add_voiceover.return_value = voiced
+
+            adapter = mock.Mock()
+            adapter.validate.return_value = (True, None, [])
+            adapter.generate.return_value = str(source)
+            get_adapter.return_value = adapter
+
+            with self.settings(
+                MEDIA_ROOT=tmp_path,
+                MEDIA_OUTPUTS_DIR=tmp_path / "outputs",
+                MEDIA_TEMP_DIR=tmp_path / "temp",
+                VOICEOVER_ENABLED=True,
+            ):
+                result = run_generation_task(str(job.pk))
+
+        self.assertEqual(result["status"], "success")
+        add_voiceover.assert_called_once()
+        job.refresh_from_db()
+        self.assertTrue(job.output_file.name.endswith("out_voiced.mp4"))
 
     def test_report_job_progress(self):
         job = GenerationJob.objects.create(prompt="test", engine="TEST")

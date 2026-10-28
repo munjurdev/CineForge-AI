@@ -59,12 +59,21 @@ def build_xfade_filtergraph(
     height: int,
     fps: int,
     transition_seconds: float,
+    audio_present: list[bool] | None = None,
+    force: bool = False,
 ) -> str | None:
-    """Build an FFmpeg filter_complex graph with crossfade transitions.
+    """Build an FFmpeg filter_complex graph that joins the clips.
 
     Returns ``None`` when every transition is a hard cut or when clip
     durations are unknown, so the caller can keep the fast concat path.
-    The final video label is ``outv``.
+    ``force=True`` builds the graph even for an all-cut chain, which is needed
+    when only some clips carry audio because stream copy cannot join those.
+
+    The final video label is ``outv``. When ``audio_present`` holds at least
+    one ``True``, a matching audio chain is built — concat for cuts and
+    acrossfade for crossfades, using the same timings as the video — ending at
+    ``outa``. Clips without an audio stream get silence of the right length so
+    every scene stays in sync.
     """
     if len(durations) < 2:
         return None
@@ -76,8 +85,11 @@ def build_xfade_filtergraph(
     while len(cut_chain) < len(durations) - 1:
         cut_chain.append("cut")
 
-    if all(item == "cut" for item in cut_chain):
+    if all(item == "cut" for item in cut_chain) and not force:
         return None
+
+    has_audio = list(audio_present or [])
+    include_audio = any(has_audio)
 
     parts: list[str] = []
     for index in range(len(durations)):
@@ -86,8 +98,23 @@ def build_xfade_filtergraph(
             f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},"
             f"format=yuv420p,setpts=PTS-STARTPTS[v{index}]"
         )
+        if not include_audio:
+            continue
+        clip_duration = durations[index]
+        if index < len(has_audio) and has_audio[index]:
+            parts.append(
+                f"[{index}:a]aresample=48000,"
+                f"aformat=sample_fmts=fltp:channel_layouts=stereo,"
+                f"asetpts=PTS-STARTPTS,apad,atrim=0:{clip_duration:.3f}[a{index}]"
+            )
+        else:
+            parts.append(
+                f"anullsrc=channel_layout=stereo:sample_rate=48000,"
+                f"atrim=0:{clip_duration:.3f},asetpts=PTS-STARTPTS[a{index}]"
+            )
 
     current = "v0"
+    current_audio = "a0"
     elapsed = durations[0]
     for index, transition in enumerate(cut_chain, start=1):
         duration = min(
@@ -98,6 +125,12 @@ def build_xfade_filtergraph(
         if transition == "cut" or duration <= 0:
             label = f"c{index}"
             parts.append(f"[{current}][v{index}]concat=n=2:v=1:a=0[{label}]")
+            if include_audio:
+                audio_label = f"ac{index}"
+                parts.append(
+                    f"[{current_audio}][a{index}]concat=n=2:v=0:a=1[{audio_label}]"
+                )
+                current_audio = audio_label
             elapsed += durations[index]
         else:
             offset = max(0.0, elapsed - duration)
@@ -106,10 +139,19 @@ def build_xfade_filtergraph(
                 f"[{current}][v{index}]xfade=transition={transition}:"
                 f"duration={duration:.3f}:offset={offset:.3f}[{label}]"
             )
+            if include_audio:
+                audio_label = f"ax{index}"
+                parts.append(
+                    f"[{current_audio}][a{index}]acrossfade=d={duration:.3f}:"
+                    f"c1=tri:c2=tri[{audio_label}]"
+                )
+                current_audio = audio_label
             elapsed = elapsed + durations[index] - duration
         current = label
 
     parts.append(f"[{current}]null[outv]")
+    if include_audio:
+        parts.append(f"[{current_audio}]anull[outa]")
     return ";".join(parts)
 
 
@@ -176,6 +218,12 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
     height = _even(first.get("height") or 480)
     fps = min(max(int(first.get("fps") or 24), 1), 60)
 
+    # Scene clips may or may not carry the generated voiceover track; the
+    # graph emits silence for the silent ones so the mix stays in sync.
+    has_audio = [bool(meta.get("has_audio")) for meta in metadata]
+    include_audio = any(has_audio)
+    mixed_audio = include_audio and not all(has_audio)
+
     graph = build_xfade_filtergraph(
         durations,
         transitions,
@@ -183,7 +231,21 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
         height=height,
         fps=fps,
         transition_seconds=getattr(settings, "FILM_TRANSITION_SECONDS", 1.0),
+        audio_present=has_audio,
     )
+    # Stream copy cannot join clips that disagree about having audio, so even an
+    # all-cut film needs the filter graph in that case.
+    if graph is None and mixed_audio:
+        graph = build_xfade_filtergraph(
+            durations,
+            transitions,
+            width=width,
+            height=height,
+            fps=fps,
+            transition_seconds=getattr(settings, "FILM_TRANSITION_SECONDS", 1.0),
+            audio_present=has_audio,
+            force=True,
+        )
 
     with tempfile.TemporaryDirectory(prefix="cineforge_film_") as tmpdir:
         tmp = Path(tmpdir)
@@ -219,11 +281,29 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
             cmd = [ffmpeg_bin, "-y"]
             for path in input_files:
                 cmd += ["-i", str(path)]
+            video_codec = getattr(settings, "FFMPEG_CONCAT_TRANSCODING", "libx264")
             cmd += [
                 "-filter_complex", graph,
                 "-map", "[outv]",
-                "-an",
-                "-c:v", getattr(settings, "FFMPEG_CONCAT_TRANSCODING", "libx264"),
+            ]
+            if include_audio and "[outa]" in graph:
+                cmd += [
+                    "-map", "[outa]",
+                    "-c:a", "aac",
+                    "-b:a", str(getattr(settings, "FILM_AUDIO_BITRATE", "192k")),
+                ]
+            else:
+                # No scene carries audio: keep the render silent.
+                cmd += ["-an"]
+            cmd += ["-c:v", video_codec]
+            # The xfade graph forces a re-encode; use a high-quality CRF so the
+            # assembled film does not look worse than the source clips.
+            if video_codec.startswith("libx26"):
+                cmd += [
+                    "-crf", str(getattr(settings, "FILM_VIDEO_CRF", 18)),
+                    "-preset", "medium",
+                ]
+            cmd += [
                 "-pix_fmt", "yuv420p",
                 "-movflags", "+faststart",
                 str(output),
@@ -285,10 +365,20 @@ def assemble_film(project: FilmProject) -> dict[str, Any]:
 
         logger.info("Assembled film %s -> %s", project.id, dest)
         if graph:
-            message = (
-                "Film assembled successfully with crossfade transitions "
-                "(video only)."
+            audio_note = (
+                "(scene audio kept)"
+                if include_audio and "[outa]" in graph
+                else "(video only)"
             )
+            if transitions_requested:
+                message = (
+                    "Film assembled successfully with crossfade transitions "
+                    f"{audio_note}."
+                )
+            else:
+                message = (
+                    f"Film assembled successfully with hard cuts {audio_note}."
+                )
         elif transitions_unavailable:
             message = (
                 "Film assembled successfully with hard cuts: the installed "

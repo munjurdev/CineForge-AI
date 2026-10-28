@@ -315,6 +315,25 @@ FFMPEG_CONCAT_TRANSCODING = config(
     "FFMPEG_CONCAT_TRANSCODING", default="libx264", cast=str
 )
 FILM_TRANSITION_SECONDS = config("FILM_TRANSITION_SECONDS", default=1.0, cast=float)
+# Quality of the re-encoded film output. Lower CRF = better quality.
+FILM_VIDEO_CRF = config("FILM_VIDEO_CRF", default=18, cast=int)
+# Bitrate used for the voiceover/audio track when a film is re-encoded.
+FILM_AUDIO_BITRATE = config("FILM_AUDIO_BITRATE", default="192k")
+
+# ---------------------------------------------------------------------------
+# Automatic AI voiceover
+# ---------------------------------------------------------------------------
+# The video models only generate silent frames, so a spoken track is generated
+# from the prompt with edge-tts (free, no API key) and muxed with FFmpeg.
+# Set VOICEOVER_ENABLED=false to keep clips silent.
+VOICEOVER_ENABLED = config("VOICEOVER_ENABLED", default=True, cast=bool)
+# Bengali voices: bn-BD-NabanitaNeural (female), bn-BD-PradeepNeural (male),
+# bn-IN-TanishaaNeural (female), bn-IN-BashkarNeural (male).
+VOICEOVER_VOICE = config("VOICEOVER_VOICE", default="bn-BD-NabanitaNeural")
+VOICEOVER_RATE = config("VOICEOVER_RATE", default="+0%")
+VOICEOVER_VOLUME = config("VOICEOVER_VOLUME", default="+0%")
+VOICEOVER_AUDIO_BITRATE = config("VOICEOVER_AUDIO_BITRATE", default="192k")
+VOICEOVER_MAX_CHARS = config("VOICEOVER_MAX_CHARS", default=240, cast=int)
 
 # ---------------------------------------------------------------------------
 # Feature flags

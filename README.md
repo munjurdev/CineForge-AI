@@ -193,10 +193,35 @@ Copy `.env.example` to `.env` and review the values. Important settings include:
 - `COMFYUI_WORKFLOW_PATH` — path to an exported ComfyUI API workflow (see below); empty means the ComfyUI adapter refuses to run
 - `FFMPEG_BIN` — path to ffmpeg if not on PATH
 - `FILM_TRANSITION_SECONDS` — crossfade duration used when assembling a film
+- `FILM_VIDEO_CRF` — quality of the re-encoded film output (lower is better; default `18`)
+- `FILM_AUDIO_BITRATE` — audio bitrate for the scene voiceovers folded into an assembled film
+- `VOICEOVER_ENABLED` — add an AI-spoken narration track to every generated clip (default `True`)
+- `VOICEOVER_VOICE` — edge-tts voice; Bengali options are `bn-BD-NabanitaNeural`, `bn-BD-PradeepNeural`, `bn-IN-TanishaaNeural`, `bn-IN-BashkarNeural`
 - `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` — Redis or other broker/backend (`redis` is installed from `requirements.txt` so Celery can resolve the broker transport even in eager mode)
 - `MEDIA_ROOT` and `STATIC_ROOT` — storage paths (relative paths resolve against the project root)
 
 All secrets are kept out of source code. The application reads configuration from environment variables via `python-decouple`.
+
+### Video and audio quality
+
+Wan 2.2 and LTX generate silent frames only — no model in this project produces
+speech or music. CineForge therefore speaks a cleaned version of the prompt with
+[`edge-tts`](https://github.com/rany2/edge-tts) (free, no API key, needs network)
+and muxes it with FFmpeg, copying the video stream so the picture is never
+re-encoded. Camera directions and trailing style words (`4k, cinematic,
+hyperrealistic`) are dropped before speaking. If edge-tts or FFmpeg is
+unavailable the clip is saved silently and the job still succeeds; set
+`VOICEOVER_ENABLED=False` to skip the step entirely.
+
+For picture quality, the ComfyUI preset defaults to 5 s (121 frames, the Wan 2.2
+reference recipe), 832×480, 28 steps and a filled-in negative prompt. Longer
+clips and higher resolutions look better but cost VRAM and time; the 5B workflow
+needs dimensions divisible by 16.
+
+Film assembly keeps scene audio: hard cuts are joined by stream copy, and
+crossfade renders build a matching audio chain (`acrossfade` for transitions,
+`concat` for cuts), inserting silence for scenes that have no voice track so
+every scene stays in sync.
 
 ## Project layout
 

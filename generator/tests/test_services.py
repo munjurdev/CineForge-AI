@@ -64,10 +64,21 @@ class JobValidationTests(TestCase):
         self.assertEqual(job.width, 832)
         self.assertEqual(job.height, 480)
         self.assertEqual(job.fps, 24)
-        self.assertEqual(job.duration_seconds, 2.0)
+        self.assertEqual(job.duration_seconds, 5.0)
         self.assertEqual(job.aspect_ratio, "16:9")
         self.assertEqual(job.guidance_scale, 5.0)
-        self.assertEqual(job.steps, 20)
+        self.assertEqual(job.steps, 28)
+
+    def test_blank_negative_prompt_gets_a_default(self):
+        job = GenerationJob(prompt="test", negative_prompt="   ")
+        ok, _msg, _warnings = validate_and_normalize_job(job)
+        self.assertTrue(ok)
+        self.assertIn("blurry", job.negative_prompt)
+
+    def test_custom_negative_prompt_is_kept(self):
+        job = GenerationJob(prompt="test", negative_prompt="my own negative")
+        validate_and_normalize_job(job)
+        self.assertEqual(job.negative_prompt, "my own negative")
 
     def test_width_too_small_rejected(self):
         job = GenerationJob(prompt="test", width=32)

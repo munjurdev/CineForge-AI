@@ -39,10 +39,12 @@ PRESETS: dict[str, dict[str, Any]] = {
         "width": 832,
         "height": 480,
         "fps": 24,
-        "duration_seconds": 2.0,
+        # Wan 2.2 5B's reference recipe is 121 frames (~5s @ 24fps); shorter
+        # clips blur and morph much more under motion.
+        "duration_seconds": 5.0,
         "aspect_ratio": "16:9",
         "guidance_scale": 5.0,
-        "steps": 20,
+        "steps": 28,
     },
     "WAN": {
         "width": 832,
@@ -72,6 +74,13 @@ PRESETS: dict[str, dict[str, Any]] = {
         "steps": 1,
     },
 }
+
+
+# Filled in when the user leaves the negative prompt blank.
+DEFAULT_NEGATIVE_PROMPT = (
+    "blurry, distorted, deformed, extra limbs, bad anatomy, low quality, "
+    "jpeg artifacts, watermark, text, logo, oversaturated, static, frozen"
+)
 
 
 def validate_and_normalize_job(
@@ -110,6 +119,11 @@ def validate_and_normalize_job(
     # Basic sanity
     if not job.prompt or not job.prompt.strip():
         return False, "A prompt is required.", []
+
+    # An empty negative prompt is the most common reason for blurry, artefacty
+    # output on Wan/LTX workflows, so fill a sensible default instead.
+    if not (job.negative_prompt or "").strip():
+        job.negative_prompt = DEFAULT_NEGATIVE_PROMPT
 
     if job.width is not None:
         if job.width < 64:
@@ -393,6 +407,7 @@ def probe_video_file(path: Path) -> dict[str, Any] | None:
     video_stream = next(
         (s for s in streams if s.get("codec_type") == "video"), streams[0] if streams else {}
     )
+    audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
 
     def _float(value: Any) -> float | None:
         try:
@@ -412,6 +427,7 @@ def probe_video_file(path: Path) -> dict[str, Any] | None:
         "height": _int(video_stream.get("height")),
         "fps": _fps_from_stream(video_stream),
         "codec": video_stream.get("codec_name", ""),
+        "has_audio": bool(audio_streams),
         "size": _int(fmt.get("size")),
         "format_name": fmt.get("format_name", ""),
     }

@@ -12,8 +12,10 @@ import logging
 from pathlib import Path
 
 from celery import shared_task
+from django.conf import settings
 
 from .adapters import get_adapter
+from .audio import add_voiceover_to_video
 from .models import GenerationJob
 from .services import (
     job_fail,
@@ -93,6 +95,12 @@ def run_generation_task(job_id: str) -> dict[str, str]:
         if not output.exists():
             job_fail(job, f"Output file not found: {output}", error_type="MISSING_OUTPUT")
             return {"status": "error", "message": f"Output file not found: {output}"}
+
+        # The video workflows render silent frames only. Add the spoken
+        # narration here so every generated clip comes out with a voice track.
+        if getattr(settings, "VOICEOVER_ENABLED", True):
+            job_set_progress(job, 0.96, "Adding AI voiceover…")
+            output = add_voiceover_to_video(job, output)
 
         job_succeed(job, output)
 
