@@ -7,6 +7,7 @@ from django import forms
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 from .models import GenerationJob
+from .providers import engine_choices, get_provider
 
 
 _FIELD_LABELS = {
@@ -53,6 +54,41 @@ def _set_field_range(field: forms.Field, minimum: float, maximum: float) -> None
     )
 
 
+class EngineChoiceField(forms.ChoiceField):
+    """Engine select whose values come from the provider registry.
+
+    ``GenerationJob.engine`` historically stored uppercase values (``TEST``,
+    ``COMFYUI``) while provider specs register lowercase keys (``test``,
+    ``veo``), so a submitted value is resolved to its registered key before
+    validation. Legacy data therefore keeps working as providers are added.
+    """
+
+    def to_python(self, value):
+        if value in self.empty_values:
+            return ""
+        value = str(value).strip()
+        spec = get_provider(value)
+        return spec.key if spec else value.lower()
+
+
+def _apply_engine_field(form: forms.Form) -> None:
+    """Populate the engine dropdown straight from the provider registry.
+
+    The registry — not the model — owns the list of backends, so adding or
+    removing a video API needs neither a migration nor a change here. Cloud
+    providers without credentials are listed but labelled with the variable
+    they are missing, so the reason is visible before a job is queued.
+    """
+    if "engine" not in form.fields:
+        return
+    form.fields["engine"] = EngineChoiceField(
+        label=_FIELD_LABELS.get("engine", "Engine / model"),
+        choices=[("", "Auto (default engine)")] + engine_choices(),
+        required=False,
+        widget=forms.Select(attrs={"class": _SELECT_CLASS}),
+    )
+
+
 class GenerationJobForm(forms.ModelForm):
     """Text to video form.
 
@@ -79,6 +115,7 @@ class GenerationJobForm(forms.ModelForm):
         for name, label in _FIELD_LABELS.items():
             if name in self.fields:
                 self.fields[name].label = label
+        _apply_engine_field(self)
         if "aspect_ratio" in self.fields:
             self.fields["aspect_ratio"].widget.choices = ASPECT_RATIO_CHOICES
         _set_field_range(self.fields["duration_seconds"], 0.5, 30)
@@ -235,6 +272,7 @@ class ImageToVideoForm(forms.ModelForm):
         for name, label in _FIELD_LABELS.items():
             if name in self.fields:
                 self.fields[name].label = label
+        _apply_engine_field(self)
         _set_field_range(self.fields["duration_seconds"], 0.5, 30)
         _set_field_range(self.fields["width"], 64, 2048)
         _set_field_range(self.fields["height"], 64, 2048)

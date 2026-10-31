@@ -95,7 +95,7 @@ def validate_and_normalize_job(
     """
     warnings: list[str] = []
 
-    preset = PRESETS.get(job.engine)
+    preset = PRESETS.get(job.engine) or _provider_preset(job.engine)
 
     if preset:
         # Fill missing values from preset
@@ -171,9 +171,22 @@ def validate_and_normalize_job(
     return True, None, warnings
 
 
+def _provider_preset(engine: str) -> dict[str, Any]:
+    """Field defaults declared by a registered provider, if any.
+
+    Local engines keep their table above; cloud providers declare their own
+    preset next to their adapter, so this stays the fallback only.
+    """
+    from .providers import get_provider
+
+    spec = get_provider(engine)
+    return dict(spec.preset) if spec else {}
+
+
 def get_engine_status_summary() -> dict[str, Any]:
     """Summarise the configured inference engine for the dashboard."""
     from .adapters import registry
+    from .providers import get_provider, status_summary
 
     configured = getattr(settings, "INFERENCE_DEFAULT_ADAPTER", "comfyui").lower()
     adapters = registry.names()
@@ -183,16 +196,54 @@ def get_engine_status_summary() -> dict[str, Any]:
         "ltx": "LTX-Video",
         "test": "Test adapter",
     }
+    spec = get_provider(configured)
+    if spec is not None:
+        label = spec.label
+        ready = spec.is_ready
+        note = spec.status_note()
+    else:
+        label = labels.get(configured, configured.title())
+        ready = configured in adapters
+        note = ""
     return {
         "configured": configured,
-        "label": labels.get(configured, configured.title()),
+        "label": label,
         "adapters": adapters,
-        "ready": configured in adapters,
+        "ready": ready,
+        "note": note,
+        "providers": status_summary(),
     }
 
 
+def _default_engine() -> str:
+    """Engine used when the form is left on ""Auto (default engine)"".
+
+    Honours ``INFERENCE_DEFAULT_ADAPTER`` when that backend is registered, so
+    "Auto" means "whatever this deployment is configured for" rather than a
+    hard-coded local engine.
+    """
+    from .providers import get_provider
+
+    configured = (
+        getattr(settings, "INFERENCE_DEFAULT_ADAPTER", "comfyui") or "comfyui"
+    )
+    if get_provider(configured) is not None:
+        return configured
+    return GenerationJob.Engine.COMFYUI
+
+
 def _suggest_model_name(engine: str) -> str:
-    """Return a human-readable default model name for the engine."""
+    """Return a human-readable default model name for the engine.
+
+    The provider registry answers first (it owns every backend, cloud or
+    local); the table below is the legacy fallback for engines that declare no
+    default.
+    """
+    from .providers import get_provider
+
+    spec = get_provider(engine)
+    if spec is not None:
+        return spec.default_model or spec.label
     return {
         "COMFYUI": "ComfyUI workflow (select model in ComfyUI)",
         "WAN": "Wan 2.1 (configure locally)",
@@ -213,7 +264,7 @@ def validate_and_normalize_job_from_form(
     job = GenerationJob()
     job.prompt = (form.cleaned_data.get("prompt") or "").strip()
     job.negative_prompt = (form.cleaned_data.get("negative_prompt") or "").strip()
-    job.engine = form.cleaned_data.get("engine") or GenerationJob.Engine.COMFYUI
+    job.engine = form.cleaned_data.get("engine") or _default_engine()
     job.model_name = (form.cleaned_data.get("model_name") or "").strip()
     job.duration_seconds = form.cleaned_data.get("duration_seconds", 2.0)
     job.width = form.cleaned_data.get("width", 832)

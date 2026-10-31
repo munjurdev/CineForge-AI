@@ -58,6 +58,27 @@ class GenerationJobAdmin(admin.ModelAdmin):
 
     id_short.short_description = "Job id"
 
+    def get_form(self, request, obj=None, **kwargs):
+        """Give the admin a real engine <select>.
+
+        ``GenerationJob.engine`` no longer declares ``choices`` (the provider
+        registry owns that list, so backends can be added without a
+        migration), which would otherwise render as free text here.
+        """
+        from django import forms
+
+        from .providers import engine_choices
+
+        form = super().get_form(request, obj, **kwargs)
+        field = form.base_fields.get("engine")
+        if field is not None:
+            form.base_fields["engine"] = forms.ChoiceField(
+                choices=engine_choices(),
+                required=field.required,
+                label="Engine",
+            )
+        return form
+
     def resolution(self, obj: GenerationJob) -> str:
         return f"{obj.width}×{obj.height}"
 

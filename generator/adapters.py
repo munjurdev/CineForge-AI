@@ -74,8 +74,28 @@ class AdapterRegistry:
 
             if name.lower() == "test":
                 return TestAdapter()
-            raise AdapterError(f"No adapter registered for '{name}'")
+            raise AdapterError(
+                f"No adapter registered for '{name}'.{self._hint(name)}"
+            )
         return cls()
+
+    @staticmethod
+    def _hint(name: str) -> str:
+        """Explain why a registered engine has no runnable adapter.
+
+        Engines such as ``wan`` exist as historical ``engine`` values (and as
+        provider specs) without an implementation, so the user gets a reason
+        instead of a bare "not registered" error.
+        """
+        try:
+            from .providers import get_provider
+
+            spec = get_provider(name)
+        except Exception:  # pragma: no cover - registry not ready
+            return ""
+        if spec is None:
+            return ""
+        return " " + (spec.unavailable_note or spec.status_note())
 
 
 # Module-level registry

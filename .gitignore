@@ -18,6 +18,8 @@ htmlcov/
 # Virtual environments
 # ---------------------------------------------------------------------------
 venv/
+.venv/
+.venv-test/
 
 # Bundled FFmpeg / ffprobe binaries (~200 MB, downloaded per machine)
 /tools/bin/

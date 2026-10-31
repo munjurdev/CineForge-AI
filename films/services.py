@@ -445,6 +445,29 @@ def move_scene(scene: FilmScene, direction: str) -> bool:
     return True
 
 
+def _normalise_engine(engine: str) -> str:
+    """Map a configured default engine onto a real ``job.engine`` value.
+
+    Legacy local engines are stored uppercase (``COMFYUI``, ``TEST``); cloud
+    providers keep the lowercase key their provider spec registers. Anything
+    unrecognised falls back to the local ComfyUI engine.
+    """
+    from generator.models import GenerationJob
+
+    if (engine or "").upper() in GenerationJob.Engine.values:
+        return engine.upper()
+
+    key = (engine or "").strip().lower()
+    try:
+        from generator.providers import provider_keys
+
+        if key in provider_keys():
+            return key
+    except Exception:  # pragma: no cover - registry unavailable
+        pass
+    return GenerationJob.Engine.COMFYUI
+
+
 def generate_scene_clip(scene: FilmScene) -> tuple[bool, str | None]:
     """Create and queue a generation job for a film scene's prompt."""
     from django.conf import settings
@@ -455,11 +478,9 @@ def generate_scene_clip(scene: FilmScene) -> tuple[bool, str | None]:
     if scene.job_id and scene.job and not scene.job.is_terminal:
         return False, "A clip is already being generated for this scene."
 
-    engine = (
+    engine = _normalise_engine(
         getattr(settings, "INFERENCE_DEFAULT_ADAPTER", "comfyui") or "comfyui"
-    ).upper()
-    if engine not in GenerationJob.Engine.values:
-        engine = GenerationJob.Engine.COMFYUI
+    )
 
     prompt = scene.prompt
     if scene.character_reference_id and scene.character_reference:

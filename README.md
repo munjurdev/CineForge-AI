@@ -188,7 +188,9 @@ Copy `.env.example` to `.env` and review the values. Important settings include:
 - `DJANGO_SECRET_KEY` — change this in production
 - `DEBUG` — keep `True` only for local development
 - `ALLOWED_HOSTS` — comma-separated list of allowed hosts
-- `INFERENCE_DEFAULT_ADAPTER` — `comfyui`, `wan`, `ltx`, or `test`
+- `INFERENCE_DEFAULT_ADAPTER` — engine used when a job does not pick one: `comfyui`, `veo`, `runway`, `luma`, `kling`, `replicate`, `huggingface`, `wan`, `ltx` or `test`
+- `VIDEO_PROVIDERS_ENABLED` / `VIDEO_PROVIDERS_DISABLED` — comma-separated lists that show or hide hosted providers (blank = all)
+- `VEO_API_KEY` / `RUNWAY_API_KEY` / `LUMA_API_KEY` / `KLING_ACCESS_KEY` + `KLING_SECRET_KEY` / `REPLICATE_API_TOKEN` / `HF_TOKEN` — credentials for the hosted backends; leave empty to hide a provider as "not configured". See [docs/video-providers.md](docs/video-providers.md)
 - `COMFYUI_BASE_URL` — URL of the local ComfyUI instance, if used
 - `COMFYUI_WORKFLOW_PATH` — path to an exported ComfyUI API workflow (see below); empty means the ComfyUI adapter refuses to run
 - `FFMPEG_BIN` — path to ffmpeg if not on PATH

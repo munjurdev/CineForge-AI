@@ -82,12 +82,28 @@ class DropdownRenderingTests(SimpleTestCase):
     """
 
     def test_engine_select_is_styled_and_lists_every_adapter(self):
+        from generator.providers import engine_choices
+
+        expected = engine_choices()
         for form in (GenerationJobForm(), ImageToVideoForm()):
             html = str(form["engine"])
             self.assertIn('class="w-full', html)
             for label in ("ComfyUI", "Wan (direct)", "LTX-Video (direct)", "Test adapter"):
                 self.assertIn(label, html)
-            self.assertEqual(html.count("<option"), 4)
+            # One blank "Auto" entry plus every registered provider.
+            self.assertEqual(html.count("<option"), len(expected) + 1)
+            for key, label in expected:
+                self.assertIn(label, html)
+
+    def test_engine_field_accepts_legacy_uppercase_values(self):
+        field = GenerationJobForm().fields["engine"]
+        self.assertEqual(field.to_python("TEST"), "test")
+        self.assertEqual(field.to_python("COMFYUI"), "comfyui")
+        self.assertEqual(field.to_python("veo"), "veo")
+
+        form = GenerationJobForm({"prompt": "test", "engine": "TEST"})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["engine"], "test")
 
     def test_aspect_ratio_select_has_options(self):
         html = str(GenerationJobForm()["aspect_ratio"])

@@ -61,10 +61,14 @@ class GenerationJob(models.Model):
         blank=True, default="", help_text="Optional negative prompt."
     )
 
-    # Selected model/engine
+    # Selected model/engine.
+    #
+    # The authoritative list of backends lives in the provider registry
+    # (``generator.providers``), not in ``choices``: that way a provider can
+    # be added or removed without generating a migration. ``Engine`` above
+    # keeps the historical local values for existing code and tests.
     engine = models.CharField(
         max_length=20,
-        choices=Engine.choices,
         default=Engine.COMFYUI,
     )
     model_name = models.CharField(
@@ -176,6 +180,23 @@ class GenerationJob(models.Model):
 
     def __str__(self) -> str:
         return f"Job {self.id.hex[:8]} — {self.get_status_display()}"
+
+    def get_engine_display(self) -> str:
+        """Human label for the selected backend, from the provider registry.
+
+        Django only generates this helper for fields that declare ``choices``;
+        since the engine list is now registry-driven, the model resolves it
+        lazily instead.
+        """
+        try:
+            from .providers import get_provider
+
+            spec = get_provider(self.engine)
+            if spec is not None:
+                return spec.label
+        except Exception:  # pragma: no cover - registry unavailable
+            pass
+        return str(self.engine or "")
 
     @property
     def is_terminal(self) -> bool:
